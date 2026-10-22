@@ -1,0 +1,6 @@
+@MTC_System_HostAddress = http://localhost:5006
+
+GET {{MTC_System_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
