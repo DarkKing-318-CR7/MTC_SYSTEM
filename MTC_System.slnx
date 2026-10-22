@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Helpers/Helpers.csproj" />
+  <Project Path="MTC_System/MTC_System.csproj" />
+</Solution>
