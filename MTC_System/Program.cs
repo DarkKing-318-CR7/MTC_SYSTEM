@@ -20,8 +20,13 @@ builder.Services.AddDbContext<MyDbContext>(options =>
 });
 
 // 3. Đăng ký Services (Dependency Injection)
+// [Dev 1]
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IFacilityService, FacilityService>();
+
+// [Dev 3]
+builder.Services.AddScoped<IBroadcastService, BroadcastService>();
+builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 
 // 4. Swagger UI
 builder.Services.AddEndpointsApiExplorer();
