@@ -1,24 +1,29 @@
 using Microsoft.EntityFrameworkCore;
 using MTC_System.Data;
+using MTC_System.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// 1. Đăng ký Controllers & Chống lỗi vòng lặp JSON (Circular Reference)
+// 1. Controllers & Chống lỗi vòng lặp JSON
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
-// 2. Đăng ký PostgreSQL DbContext
+
+// 2. PostgreSQL DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<MyDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
 });
 
+// 3. Đăng ký Services (Dependency Injection)
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
+builder.Services.AddScoped<IFacilityService, FacilityService>();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// 4. Swagger UI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
