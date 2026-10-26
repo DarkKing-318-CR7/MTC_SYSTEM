@@ -10,7 +10,7 @@ using MTC_System.Services.Interfaces;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// 1. Đăng ký Controllers & Chống lỗi vòng lặp JSON (Circular Reference)
+// 1. Controllers & Chống lỗi vòng lặp JSON
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -29,6 +29,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 // 2. Đăng ký PostgreSQL DbContext
+// 2. PostgreSQL DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<MyDbContext>(options =>
 {
@@ -43,8 +44,16 @@ builder.Services.AddScoped<IDeviceErrorCodeService, DeviceErrorCodeService>();
 builder.Services.AddScoped<IDeviceActivityLogService, DeviceActivityLogService>();
 builder.Services.AddScoped<IDevicePlayHistoryService, DevicePlayHistoryService>();
 
+// 3. Đăng ký Services (Dependency Injection)
+// [Dev 1]
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
+builder.Services.AddScoped<IFacilityService, FacilityService>();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// [Dev 3]
+builder.Services.AddScoped<IBroadcastService, BroadcastService>();
+builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
+
+// 4. Swagger UI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
