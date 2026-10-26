@@ -75,6 +75,8 @@ namespace MTC_System.Data
         public DbSet<SystemNotificationRead> SystemNotificationReads { get; set; } = null!;
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
+        public DbSet<MediaUploadSession> MediaUploadSessions { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
