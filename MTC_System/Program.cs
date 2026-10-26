@@ -48,6 +48,8 @@ builder.Services.AddScoped<IDevicePlayHistoryService, DevicePlayHistoryService>(
 // [Dev 1]
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IFacilityService, FacilityService>();
+builder.Services.AddScoped<IPackageService, PackageService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // [Dev 3]
 builder.Services.AddScoped<IBroadcastService, BroadcastService>();
