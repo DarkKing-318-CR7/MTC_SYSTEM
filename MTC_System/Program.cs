@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MTC_System.Common;
 using MTC_System.Data;
+using MTC_System.Services.Implements;
 using MTC_System.Services;
 using MTC_System.Services.Implementations;
 using MTC_System.Services.Interfaces;
@@ -35,6 +36,7 @@ builder.Services.AddDbContext<MyDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
 });
+builder.Services.AddScoped<IChunkedMediaUploadSvc, ChunkedMediaUploadSvc>();
 
 // Dev 4 - CRUD Thiết bị, nhóm, nhà phân phối, mã lỗi và nhật ký.
 builder.Services.AddScoped<IDeviceService, DeviceService>();
