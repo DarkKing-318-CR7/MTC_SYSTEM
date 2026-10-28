@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MTC_System.Data;
+using MTC_System.Services.Implements;
+using MTC_System.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +18,7 @@ builder.Services.AddDbContext<MyDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
 });
+builder.Services.AddScoped<IChunkedMediaUploadSvc, ChunkedMediaUploadSvc>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
