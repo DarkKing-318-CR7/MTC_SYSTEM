@@ -131,6 +131,128 @@ namespace MTC_System.Controllers
             return Ok(result);
         }
 
+        #region 2FA Endpoints (Issue #3 / SEC-2FA-LGN-06)
+        /// <summary>
+        /// 7. Xác thực bước 2 khi Đăng nhập (Dùng mã 6 số Authenticator HOẶC mã dự phòng Backup Code)
+        /// </summary>
+        [HttpPost("verify-2fa")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorLoginDto dto)
+        {
+            var result = await _authService.VerifyTwoFactorLoginAsync(dto);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// 8. Bắt đầu thiết lập 2FA: Sinh Secret Key và mã QR Code (quét bằng Google Authenticator)
+        /// </summary>
+        [HttpPost("2fa/setup")]
+        [Authorize]
+        public async Task<IActionResult> SetupTwoFactor()
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<TwoFactorSetupResponseDto>.Fail("Vui lòng đăng nhập."));
+            }
+
+            var result = await _authService.SetupTwoFactorAsync(userId.Value);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// 9. Kích hoạt 2FA: Nhập mã 6 số từ app Authenticator để hoàn tất và nhận 10 mã dự phòng
+        /// </summary>
+        [HttpPost("2fa/enable")]
+        [Authorize]
+        public async Task<IActionResult> EnableTwoFactor([FromBody] EnableTwoFactorDto dto)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<TwoFactorEnableResponseDto>.Fail("Vui lòng đăng nhập."));
+            }
+
+            var result = await _authService.EnableTwoFactorAsync(userId.Value, dto);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// 10. Tắt xác thực 2 bước (Cần mật khẩu hiện tại + mã OTP hoặc mã dự phòng)
+        /// </summary>
+        [HttpPost("2fa/disable")]
+        [Authorize]
+        public async Task<IActionResult> DisableTwoFactor([FromBody] DisableTwoFactorDto dto)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<bool>.Fail("Vui lòng đăng nhập."));
+            }
+
+            var result = await _authService.DisableTwoFactorAsync(userId.Value, dto);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// 11. Tạo lại 10 mã dự phòng mới (Vô hiệu hóa các mã dự phòng cũ)
+        /// </summary>
+        [HttpPost("2fa/backup-codes/regenerate")]
+        [Authorize]
+        public async Task<IActionResult> RegenerateBackupCodes([FromBody] RegenerateBackupCodesDto dto)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<List<string>>.Fail("Vui lòng đăng nhập."));
+            }
+
+            var result = await _authService.RegenerateBackupCodesAsync(userId.Value, dto);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// 12. Xem số lượng mã dự phòng còn lại
+        /// </summary>
+        [HttpGet("2fa/backup-codes/count")]
+        [Authorize]
+        public async Task<IActionResult> GetRemainingBackupCodesCount()
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<int>.Fail("Vui lòng đăng nhập."));
+            }
+
+            var result = await _authService.GetRemainingBackupCodesCountAsync(userId.Value);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+        #endregion
+
         #region Helper
         private Guid? GetCurrentUserId()
         {

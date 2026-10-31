@@ -73,4 +73,59 @@ namespace MTC_System.DTOs
         [EmailAddress(ErrorMessage = "Email không hợp lệ")]
         public string Email { get; set; } = string.Empty;
     }
+
+    #region 2FA DTOs (Issue #3 / SEC-2FA-LGN-06)
+    public class TwoFactorSetupResponseDto
+    {
+        public string SecretKey { get; set; } = string.Empty;
+        public string ManualEntryKey { get; set; } = string.Empty;
+        public string QrCodeDataUrl { get; set; } = string.Empty;
+        public string OtpAuthUrl { get; set; } = string.Empty;
+    }
+
+    public class EnableTwoFactorDto
+    {
+        [Required(ErrorMessage = "Mã xác thực 6 số là bắt buộc")]
+        [RegularExpression(@"^\d{6}$", ErrorMessage = "Mã xác thực phải gồm đúng 6 chữ số")]
+        public string Code { get; set; } = string.Empty;
+    }
+
+    public class TwoFactorEnableResponseDto
+    {
+        public bool IsSuccess { get; set; } = true;
+        public string Message { get; set; } = string.Empty;
+        public List<string> BackupCodes { get; set; } = new();
+    }
+
+    public class VerifyTwoFactorLoginDto
+    {
+        [Required(ErrorMessage = "Mã người dùng (UserId) là bắt buộc")]
+        public Guid UserId { get; set; }
+
+        [Required(ErrorMessage = "Mã xác thực 2 bước hoặc mã dự phòng là bắt buộc")]
+        public string Code { get; set; } = string.Empty;
+    }
+
+    public class DisableTwoFactorDto
+    {
+        [Required(ErrorMessage = "Mật khẩu hiện tại là bắt buộc")]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Mã xác thực OTP hoặc mã dự phòng là bắt buộc")]
+        public string Code { get; set; } = string.Empty;
+    }
+
+    public class RegenerateBackupCodesDto
+    {
+        [Required(ErrorMessage = "Mật khẩu xác nhận là bắt buộc")]
+        public string Password { get; set; } = string.Empty;
+    }
+
+    public class BackupCodeItem
+    {
+        public string Code { get; set; } = string.Empty;
+        public bool IsUsed { get; set; } = false;
+        public DateTimeOffset? UsedAt { get; set; }
+    }
+    #endregion
 }
