@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MTC_System.Common;
 using MTC_System.DTOs.Devices;
@@ -10,8 +12,13 @@ namespace MTC_System.Controllers;
 public sealed class DevicesController : ControllerBase
 {
     private readonly IDeviceService _service;
+    private readonly IDeviceActivationService _activationService;
 
-    public DevicesController(IDeviceService service) => _service = service;
+    public DevicesController(IDeviceService service, IDeviceActivationService activationService)
+    {
+        _service = service;
+        _activationService = activationService;
+    }
 
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<DeviceResponse>>>> GetAll(
@@ -56,4 +63,22 @@ public sealed class DevicesController : ControllerBase
         await _service.DeleteAsync(id, cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { id }, "Xóa thiết bị thành công."));
     }
+
+    [Authorize(Roles = "ADMINISTRATOR,Administrator,IT")]
+    [HttpPost("{id:guid}/activation-code")]
+    public async Task<ActionResult<ApiResponse<DeviceActivationCodeResponse>>> GenerateActivationCode(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var admin = new DeviceActivationAdminContext(
+            ParseClaim(ClaimTypes.NameIdentifier),
+            ParseClaim("organizationId"),
+            ParseClaim("facilityId"),
+            User.IsInRole("ADMINISTRATOR") || User.IsInRole("Administrator"));
+        var data = await _activationService.GenerateActivationCodeAsync(id, admin, cancellationToken);
+        return Ok(ApiResponse<DeviceActivationCodeResponse>.Ok(data, "Sinh mã kích hoạt thiết bị thành công."));
+    }
+
+    private Guid? ParseClaim(string claimType) =>
+        Guid.TryParse(User.FindFirstValue(claimType), out var value) ? value : null;
 }

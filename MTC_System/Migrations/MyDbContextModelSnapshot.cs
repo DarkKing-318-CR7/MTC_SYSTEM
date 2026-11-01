@@ -336,16 +336,25 @@ namespace MTC_System.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ActivationOtp")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("ActivationQrToken")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTimeOffset?>("ActivationTokenExpiry")
+                    b.Property<DateTimeOffset?>("ActivatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ActivationCodeExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ActivationFailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ActivationLockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ActivationOtpHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActivationQrTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<bool>("ActiveStatus")
                         .HasColumnType("boolean");
@@ -375,6 +384,16 @@ namespace MTC_System.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset?>("DeviceRefreshTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceRefreshTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("DeviceTokenVersion")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("FacilityId")
                         .HasColumnType("uuid");
@@ -464,6 +483,9 @@ namespace MTC_System.Migrations
                         .IsUnique();
 
                     b.HasIndex("DeviceGroupId");
+
+                    b.HasIndex("DeviceRefreshTokenHash")
+                        .IsUnique();
 
                     b.HasIndex("FacilityId");
 

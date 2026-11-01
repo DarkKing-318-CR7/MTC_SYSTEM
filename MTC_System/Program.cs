@@ -1,4 +1,5 @@
 using System;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
@@ -46,6 +47,9 @@ builder.Services.AddDbContext<MyDbContext>(options =>
 var jwtSecretKey = builder.Configuration["Jwt:SecretKey"] ?? "MTC_SYSTEM_SUPER_SECRET_KEY_FOR_JWT_SECURITY_2026_@_LONG_ENOUGH_KEY";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MTC_Backend";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MTC_Clients";
+var deviceJwtSecretKey = builder.Configuration["DeviceJwt:SecretKey"] ?? jwtSecretKey;
+var deviceJwtIssuer = builder.Configuration["DeviceJwt:Issuer"] ?? "MTC_DeviceGateway";
+var deviceJwtAudience = builder.Configuration["DeviceJwt:Audience"] ?? "MTC_Devices";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -66,6 +70,46 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtAudience,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
+    };
+})
+.AddJwtBearer("DeviceBearer", options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(deviceJwtSecretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = deviceJwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = deviceJwtAudience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var deviceIdValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var versionValue = context.Principal?.FindFirstValue("token_version");
+            if (!Guid.TryParse(deviceIdValue, out var deviceId) || !int.TryParse(versionValue, out var tokenVersion))
+            {
+                context.Fail("Device Token không hợp lệ.");
+                return;
+            }
+
+            var dbContext = context.HttpContext.RequestServices.GetRequiredService<MyDbContext>();
+            var valid = await dbContext.Devices.AsNoTracking().AnyAsync(
+                x => x.Id == deviceId &&
+                     !x.IsDeleted &&
+                     x.ActiveStatus &&
+                     x.IsActivated &&
+                     x.DeviceTokenVersion == tokenVersion,
+                context.HttpContext.RequestAborted);
+            if (!valid)
+                context.Fail("Device Token đã bị thu hồi hoặc thiết bị đã bị khóa.");
+        }
     };
 });
 
@@ -99,6 +143,7 @@ builder.Services.AddScoped<IDeviceVendorService, DeviceVendorService>();
 builder.Services.AddScoped<IDeviceErrorCodeService, DeviceErrorCodeService>();
 builder.Services.AddScoped<IDeviceActivityLogService, DeviceActivityLogService>();
 builder.Services.AddScoped<IDevicePlayHistoryService, DevicePlayHistoryService>();
+builder.Services.AddScoped<IDeviceActivationService, DeviceActivationService>();
 
 // 5. Swagger UI với nút ổ khóa nhập Bearer Token
 builder.Services.AddEndpointsApiExplorer();

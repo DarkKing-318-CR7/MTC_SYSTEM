@@ -50,10 +50,19 @@ namespace MTC_System.Models
         public string? InstallationAddress { get; set; }
 
         // ------- QR CODE / OTP ĐĂNG NHẬP THIẾT BỊ (USR-DEV-09) -------
-        public string? ActivationQrToken { get; set; }          // Mã QR token (dùng 1 lần)
-        public string? ActivationOtp { get; set; }              // Mã OTP 6 số (dùng 1 lần)
-        public DateTimeOffset? ActivationTokenExpiry { get; set; }
+        // Chỉ lưu HMAC; token/OTP rõ chỉ được trả về đúng một lần lúc quản trị viên sinh mã.
+        public string? ActivationQrTokenHash { get; set; }
+        public string? ActivationOtpHash { get; set; }
+        public DateTimeOffset? ActivationCodeExpiresAt { get; set; }
+        public int ActivationFailedAttempts { get; set; }
+        public DateTimeOffset? ActivationLockedUntil { get; set; }
         public bool IsActivated { get; set; } = false;
+        public DateTimeOffset? ActivatedAt { get; set; }
+
+        // Refresh token của thiết bị được xoay vòng và chỉ lưu HMAC trong database.
+        public string? DeviceRefreshTokenHash { get; set; }
+        public DateTimeOffset? DeviceRefreshTokenExpiresAt { get; set; }
+        public int DeviceTokenVersion { get; set; }
 
         public DateTimeOffset? LastOnlineAt { get; set; }       // Lần cuối kết nối
 

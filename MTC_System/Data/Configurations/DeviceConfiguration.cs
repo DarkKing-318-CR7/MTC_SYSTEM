@@ -26,8 +26,10 @@ namespace MTC_System.Data.Configurations
             builder.Property(d => d.PlayStatus).IsRequired().HasMaxLength(50).HasDefaultValue("Dừng phát bản tin");
             builder.Property(d => d.ScreenshotUrl).HasMaxLength(500);
             builder.Property(d => d.InstallationAddress).HasMaxLength(500);
-            builder.Property(d => d.ActivationQrToken).HasMaxLength(500);
-            builder.Property(d => d.ActivationOtp).HasMaxLength(10);
+            builder.Property(d => d.ActivationQrTokenHash).HasMaxLength(64);
+            builder.Property(d => d.ActivationOtpHash).HasMaxLength(64);
+            builder.Property(d => d.DeviceRefreshTokenHash).HasMaxLength(64);
+            builder.HasIndex(d => d.DeviceRefreshTokenHash).IsUnique();
 
             // Khóa ngoại sang Facilities
             builder.HasOne<Facility>()

@@ -66,7 +66,6 @@ public class UpdateDeviceRequest : CreateDeviceRequest
     [Required, StringLength(50)]
     public string PlayStatus { get; set; } = "Dừng phát bản tin";
 
-    public bool IsActivated { get; set; }
     public DateTimeOffset? LastOnlineAt { get; set; }
 }
 
@@ -99,6 +98,7 @@ public class DeviceResponse
     public bool IsActivated { get; set; }
     public bool HasPendingActivation { get; set; }
     public DateTimeOffset? ActivationTokenExpiry { get; set; }
+    public DateTimeOffset? ActivatedAt { get; set; }
     public DateTimeOffset? LastOnlineAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }

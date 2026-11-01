@@ -103,6 +103,7 @@ public sealed class DeviceService : IDeviceService
 
         await ValidateRequestAsync(request, id, cancellationToken);
         ValidateStatuses(request.ConnectionStatus, request.PlayStatus);
+        var isBeingLocked = entity.ActiveStatus && !request.ActiveStatus;
 
         entity.OrganizationId = request.OrganizationId;
         entity.FacilityId = request.FacilityId;
@@ -126,9 +127,10 @@ public sealed class DeviceService : IDeviceService
         entity.Latitude = request.Latitude;
         entity.Longitude = request.Longitude;
         entity.InstallationAddress = Clean(request.InstallationAddress);
-        entity.IsActivated = request.IsActivated;
         entity.LastOnlineAt = request.LastOnlineAt;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+        if (isBeingLocked)
+            RevokeDeviceCredentials(entity);
 
         await _context.SaveChangesAsync(cancellationToken);
         return await GetByIdAsync(id, cancellationToken);
@@ -143,9 +145,7 @@ public sealed class DeviceService : IDeviceService
         entity.ActiveStatus = false;
         entity.ConnectionStatus = "Mất kết nối";
         entity.PlayStatus = "Dừng phát bản tin";
-        entity.ActivationQrToken = null;
-        entity.ActivationOtp = null;
-        entity.ActivationTokenExpiry = null;
+        RevokeDeviceCredentials(entity);
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
     }
@@ -205,6 +205,19 @@ public sealed class DeviceService : IDeviceService
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private static void RevokeDeviceCredentials(Device entity)
+    {
+        entity.ActivationQrTokenHash = null;
+        entity.ActivationOtpHash = null;
+        entity.ActivationCodeExpiresAt = null;
+        entity.ActivationFailedAttempts = 0;
+        entity.ActivationLockedUntil = null;
+        entity.DeviceRefreshTokenHash = null;
+        entity.DeviceRefreshTokenExpiresAt = null;
+        entity.IsActivated = false;
+        entity.DeviceTokenVersion++;
+    }
+
     private static IQueryable<DeviceResponse> Project(IQueryable<Device> query) => query.Select(x => new DeviceResponse
     {
         Id = x.Id,
@@ -232,8 +245,9 @@ public sealed class DeviceService : IDeviceService
         Longitude = x.Longitude,
         InstallationAddress = x.InstallationAddress,
         IsActivated = x.IsActivated,
-        HasPendingActivation = x.ActivationQrToken != null || x.ActivationOtp != null,
-        ActivationTokenExpiry = x.ActivationTokenExpiry,
+        HasPendingActivation = x.ActivationQrTokenHash != null || x.ActivationOtpHash != null,
+        ActivationTokenExpiry = x.ActivationCodeExpiresAt,
+        ActivatedAt = x.ActivatedAt,
         LastOnlineAt = x.LastOnlineAt,
         CreatedAt = x.CreatedAt,
         UpdatedAt = x.UpdatedAt
