@@ -588,82 +588,82 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0001-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7586), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Thiết bị không thể ping đến máy chủ trung tâm trong 3 phút",
-                            ErrorCode = "MTT-001",
-                            ErrorName = "Mất kết nối mạng Internet",
-                            IsDeleted = false,
-                            Severity = "Nghiêm trọng"
-                        },
-                        new
-                        {
-                            Id = new Guid("eeeeeeee-0002-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7589), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Nguồn cấp điện không ổn định hoặc sụt áp",
-                            ErrorCode = "MTT-002",
-                            ErrorName = "Mất nguồn điện / Pin yếu",
-                            IsDeleted = false,
-                            Severity = "Nghiêm trọng"
-                        },
-                        new
-                        {
-                            Id = new Guid("eeeeeeee-0003-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7591), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Không nhận diện được card âm thanh hoặc tín hiệu DAC méo",
-                            ErrorCode = "MTT-003",
-                            ErrorName = "Lỗi phần cứng âm thanh / Loa rè",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thời gian thiết bị sai lệch nhiều so với hệ thống",
+                            ErrorCode = "MTT-CLOCK-001",
+                            ErrorName = "Sai giờ",
                             IsDeleted = false,
                             Severity = "Trung bình"
                         },
                         new
                         {
-                            Id = new Guid("eeeeeeee-0004-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7595), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Màn hình LED/LCD không phản hồi hiển thị",
-                            ErrorCode = "MTT-004",
-                            ErrorName = "Màn hình đen / Không nhận tín hiệu HDMI",
+                            Id = new Guid("eeeeeeee-0002-0000-0000-000000000000"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thiết bị mất kết nối Internet trong khi đang tải tệp",
+                            ErrorCode = "MTT-DOWNLOAD-002",
+                            ErrorName = "Gián đoạn tải",
+                            IsDeleted = false,
+                            Severity = "Trung bình"
+                        },
+                        new
+                        {
+                            Id = new Guid("eeeeeeee-0003-0000-0000-000000000000"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Tải tệp thất bại và thử lại quá 3 lần liên tiếp vẫn không thành công",
+                            ErrorCode = "MTT-DOWNLOAD-003",
+                            ErrorName = "Tải thất bại quá 3 lần",
                             IsDeleted = false,
                             Severity = "Nghiêm trọng"
                         },
                         new
                         {
+                            Id = new Guid("eeeeeeee-0004-0000-0000-000000000000"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Độ phân giải của nội dung phát lớn hơn độ phân giải thiết bị hỗ trợ",
+                            ErrorCode = "MTT-RENDER-004",
+                            ErrorName = "Lỗi hiển thị độ phân giải",
+                            IsDeleted = false,
+                            Severity = "Trung bình"
+                        },
+                        new
+                        {
                             Id = new Guid("eeeeeeee-0005-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7603), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Tệp tin tải về bị hỏng hoặc mã MD5 không khớp",
-                            ErrorCode = "MTT-005",
-                            ErrorName = "Lỗi tải tệp Media / Sai Checksum",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Tải tệp thành công nhưng checksum không khớp",
+                            ErrorCode = "MTT-FILE-005",
+                            ErrorName = "Sai checksum",
                             IsDeleted = false,
                             Severity = "Trung bình"
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-0006-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7605), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Dung lượng đĩa cục bộ không đủ để lưu cache bản tin",
-                            ErrorCode = "MTT-006",
-                            ErrorName = "Bộ nhớ trong đầy (>95%)",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thiết bị không đủ không gian lưu trữ để tải thêm nội dung",
+                            ErrorCode = "MTT-STORAGE-006",
+                            ErrorName = "Đầy bộ nhớ",
                             IsDeleted = false,
-                            Severity = "Trung bình"
+                            Severity = "Nghiêm trọng"
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-0007-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7607), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Cảm biến nhiệt báo vượt ngưỡng an toàn (>75 độ C)",
-                            ErrorCode = "MTT-007",
-                            ErrorName = "Nhiệt độ CPU / Thiết bị quá cao",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Gói cước của tổ chức đã hết hạn",
+                            ErrorCode = "MTT-ACC-007",
+                            ErrorName = "Tổ chức hết hạn gói",
                             IsDeleted = false,
-                            Severity = "Thấp"
+                            Severity = "Nghiêm trọng"
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-0008-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7609), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "JWT Token của thiết bị không hợp lệ hoặc đã bị thu hồi",
-                            ErrorCode = "MTT-008",
-                            ErrorName = "Lỗi xác thực Token / Phiên làm việc hết hạn",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thiết bị mất kết nối Internet",
+                            ErrorCode = "MTT-NETWORK-008",
+                            ErrorName = "Mất kết nối Internet",
                             IsDeleted = false,
-                            Severity = "Trung bình"
+                            Severity = "Nghiêm trọng"
                         });
                 });
 
