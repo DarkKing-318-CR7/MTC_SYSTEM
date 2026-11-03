@@ -64,5 +64,16 @@ namespace MTC_System.Controllers
             if (!res.Success) return BadRequest(res);
             return Ok(res);
         }
+
+        /// <summary>
+        /// Lấy danh sách ID cơ sở hiện tại và toàn bộ cơ sở con cháu trực thuộc (phục vụ lọc phân quyền cây địa bàn)
+        /// </summary>
+        [HttpGet("{id}/descendant-ids")]
+        public async Task<IActionResult> GetDescendantIds(Guid id)
+        {
+            var res = await _facilityService.GetDescendantFacilityIdsAsync(id);
+            if (!res.Success) return NotFound(res);
+            return Ok(res);
+        }
     }
 }
