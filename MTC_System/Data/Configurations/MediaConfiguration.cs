@@ -15,12 +15,13 @@ namespace MTC_System.Data.Configurations
             builder.Property(m => m.FileName).IsRequired().HasMaxLength(500);
             builder.Property(m => m.FilePath).HasMaxLength(1000);
             builder.Property(m => m.FileType).IsRequired().HasMaxLength(50);
+            builder.Property(m => m.SourceType).HasConversion<string>().IsRequired().HasMaxLength(50).HasDefaultValue(MediaSourceMethod.File);
             builder.Property(m => m.ApprovalStatus).IsRequired().HasMaxLength(50).HasDefaultValue("Chờ duyệt");
             builder.Property(m => m.RejectionReason).HasMaxLength(510);
             builder.Property(m => m.ChecksumMd5).HasMaxLength(50);
             builder.Property(m => m.ChecksumSha256).HasMaxLength(100);
-            builder.Property(m => m.Url).HasMaxLength(1000);
-            builder.Property(m => m.FrequencyHz).HasMaxLength(50);
+            builder.Property(m => m.Url).HasMaxLength(2048);
+            builder.Property(m => m.SourceUrl).HasMaxLength(2048);
 
             // Khóa ngoại sang Facilities
             builder.HasOne<Facility>()

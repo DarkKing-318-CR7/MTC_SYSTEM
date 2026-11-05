@@ -51,7 +51,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
         _sessionLifetime = TimeSpan.FromHours(lifetimeHours);
     }
 
-    public async Task<InitializeMediaUploadResponseDto> InitializeAsync(InitializeMediaUploadRequestDto request, CancellationToken cancellationToken)
+    public async Task<InitializeMediaUploadResponseDto> InitializeAsync(InitializeMediaUploadRequestDto request, Guid userId, CancellationToken cancellationToken)
     {
         await CleanupExpiredSessionsAsync(cancellationToken);
         var suppliedFileName = request.FileName?.Trim();
@@ -69,11 +69,11 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
             throw new MediaUploadException(StatusCodes.Status400BadRequest, "Organization and facility identifiers are required.");
 
         var facility = await _db.Facilities.AsNoTracking().SingleOrDefaultAsync(
-            x => x.Id == request.FacilityId && x.OrganizationId == request.OrganizationId && x.IsActive, cancellationToken);
+            x => x.Id == request.FacilityId && x.OrganizationId == request.OrganizationId && x.IsActive && !x.IsDeleted, cancellationToken);
         if (facility is null) throw new MediaUploadException(StatusCodes.Status400BadRequest, "Facility does not exist, is inactive, or does not belong to the specified organization.");
         if (request.CategoryId.HasValue)
         {
-            var category = await _db.MediaCategories.AsNoTracking().AnyAsync(x => x.Id == request.CategoryId && (x.OrganizationId == null || x.OrganizationId == request.OrganizationId), cancellationToken);
+            var category = await _db.MediaCategories.AsNoTracking().AnyAsync(x => x.Id == request.CategoryId && !x.IsDeleted && (x.OrganizationId == null || x.OrganizationId == request.OrganizationId), cancellationToken);
             if (!category) throw new MediaUploadException(StatusCodes.Status400BadRequest, "Media category is not available to the specified organization.");
         }
 
@@ -90,7 +90,8 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
             {
                 UploadIdentifier = identifier.ToString("N"), Status = UploadingStatus, ExpectedFileName = fileName,
                 ExpectedFileSize = request.FileSize, ChunkSize = _chunkSize, TotalChunks = chunks,
-                ReceivedChunksBitmap = new byte[(chunks + 7) / 8], TempFilePath = directory, ExpiresAt = expiresAt
+                ReceivedChunksBitmap = new byte[(chunks + 7) / 8], TempFilePath = directory, ExpiresAt = expiresAt,
+                CreatedBy = userId
             });
             await _db.SaveChangesAsync(cancellationToken);
         }
@@ -105,13 +106,33 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
         return new InitializeMediaUploadResponseDto { UploadIdentifier = identifier.ToString("N"), ChunkSize = _chunkSize, TotalChunks = chunks, ExpiresAt = expiresAt };
     }
 
-    public async Task<MediaUploadStatusResponseDto> UploadChunkAsync(string uploadIdentifier, int chunkIndex, UploadMediaChunkRequestDto request, CancellationToken cancellationToken)
+    public async Task<bool> IsFacilityWithinScopeAsync(Guid facilityId, Guid organizationId, Guid rootFacilityId, CancellationToken cancellationToken)
+    {
+        var facilities = await _db.Facilities.AsNoTracking()
+            .Where(x => x.OrganizationId == organizationId && x.IsActive && !x.IsDeleted)
+            .Select(x => new { x.Id, x.ParentId })
+            .ToListAsync(cancellationToken);
+        var children = facilities.ToLookup(x => x.ParentId, x => x.Id);
+        if (!facilities.Any(x => x.Id == rootFacilityId)) return false;
+        var descendants = new HashSet<Guid> { rootFacilityId };
+        var pending = new Queue<Guid>();
+        pending.Enqueue(rootFacilityId);
+        while (pending.TryDequeue(out var parentId))
+        {
+            foreach (var childId in children[parentId])
+                if (descendants.Add(childId)) pending.Enqueue(childId);
+        }
+        return descendants.Contains(facilityId) && facilities.Any(x => x.Id == facilityId);
+    }
+
+    public async Task<MediaUploadStatusResponseDto> UploadChunkAsync(string uploadIdentifier, int chunkIndex, UploadMediaChunkRequestDto request, Guid userId, CancellationToken cancellationToken)
     {
         var id = ParseIdentifier(uploadIdentifier);
         using var sessionLock = await AcquireSessionLockAsync(id, cancellationToken);
         try
         {
             var session = await LoadSessionAsync(id, cancellationToken);
+            EnsureSessionOwner(session, userId);
             var entry = _db.Entry(session);
 
             Console.WriteLine(
@@ -160,16 +181,17 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
         catch (DbUpdateException) { throw new MediaUploadException(StatusCodes.Status500InternalServerError, "Chunk progress could not be saved; retry the request."); }
     }
 
-    public async Task<MediaUploadStatusResponseDto> GetStatusAsync(string uploadIdentifier, CancellationToken cancellationToken)
+    public async Task<MediaUploadStatusResponseDto> GetStatusAsync(string uploadIdentifier, Guid userId, CancellationToken cancellationToken)
     {
         var id = ParseIdentifier(uploadIdentifier);
         using var sessionLock = await AcquireSessionLockAsync(id, cancellationToken);
         var session = await LoadSessionAsync(id, cancellationToken);
+        EnsureSessionOwner(session, userId);
         await ExpireIfNecessaryAsync(session, cancellationToken);
         return ToStatus(session);
     }
 
-    public async Task<CompleteMediaUploadResponseDto> CompleteAsync(string uploadIdentifier, CancellationToken cancellationToken)
+    public async Task<CompleteMediaUploadResponseDto> CompleteAsync(string uploadIdentifier, Guid userId, CancellationToken cancellationToken)
     {
         var id = ParseIdentifier(uploadIdentifier);
         using var sessionLock = await AcquireSessionLockAsync(id, cancellationToken);
@@ -177,6 +199,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
         try
         {
             var session = await LoadSessionAsync(id, cancellationToken);
+            EnsureSessionOwner(session, userId);
             await ExpireIfNecessaryAsync(session, cancellationToken);
             if (session.Status == CompletedStatus)
                 return new CompleteMediaUploadResponseDto { MediaId = session.MediaId ?? Guid.Empty, FileSize = session.ExpectedFileSize, ChecksumMd5 = session.ChecksumMd5 ?? string.Empty, ChecksumSha256 = session.ChecksumSha256 ?? string.Empty };
@@ -215,6 +238,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                     FileName = session.ExpectedFileName,
                     FilePath = relativeFile,
                     FileType = GetMediaType(extension),
+                    SourceType = MediaSourceMethod.File,
                     FileSize = session.ExpectedFileSize,
                     SizeInBytes = session.ExpectedFileSize,
                     ChecksumMd5 = md5,
@@ -222,7 +246,8 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                     ApprovalStatus = "Chờ duyệt",
                     OrganizationId = metadata.OrganizationId,
                     FacilityId = metadata.FacilityId,
-                    CategoryId = metadata.CategoryId
+                    CategoryId = metadata.CategoryId,
+                    CreatedBy = session.CreatedBy
                 };
                 await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
                 _db.Media.Add(media);
@@ -238,6 +263,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                 TryDeleteDirectory(directory);
                 return new CompleteMediaUploadResponseDto { MediaId = mediaId, FileSize = session.ExpectedFileSize, ChecksumMd5 = md5, ChecksumSha256 = sha256 };
             }
+
             catch (MediaUploadException)
             {
                 TryDeleteFile(assemblingPath);
@@ -248,6 +274,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                 TryDeleteDirectory(directory);
                 throw;
             }
+
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbUpdateException)
             {
                 TryDeleteFile(assemblingPath);
@@ -364,6 +391,12 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
             TryDeleteDirectory(GetSessionDirectory(Guid.ParseExact(session.UploadIdentifier, "N")));
             throw new MediaUploadException(StatusCodes.Status410Gone, "Upload session has expired.");
         }
+    }
+
+    private static void EnsureSessionOwner(MediaUploadSession session, Guid userId)
+    {
+        if (session.CreatedBy != userId)
+            throw new MediaUploadException(StatusCodes.Status404NotFound, "Upload session was not found.");
     }
 
     private string GetSessionDirectory(Guid id) => Path.Combine(_storageRoot, "sessions", id.ToString("N"));

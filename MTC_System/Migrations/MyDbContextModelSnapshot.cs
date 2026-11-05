@@ -588,7 +588,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0001-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4741), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7586), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Thiết bị không thể ping đến máy chủ trung tâm trong 3 phút",
                             ErrorCode = "MTT-001",
                             ErrorName = "Mất kết nối mạng Internet",
@@ -598,7 +598,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0002-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4745), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7589), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Nguồn cấp điện không ổn định hoặc sụt áp",
                             ErrorCode = "MTT-002",
                             ErrorName = "Mất nguồn điện / Pin yếu",
@@ -608,7 +608,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0003-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4749), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7591), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Không nhận diện được card âm thanh hoặc tín hiệu DAC méo",
                             ErrorCode = "MTT-003",
                             ErrorName = "Lỗi phần cứng âm thanh / Loa rè",
@@ -618,7 +618,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0004-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4752), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7595), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Màn hình LED/LCD không phản hồi hiển thị",
                             ErrorCode = "MTT-004",
                             ErrorName = "Màn hình đen / Không nhận tín hiệu HDMI",
@@ -628,7 +628,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0005-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4754), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7603), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Tệp tin tải về bị hỏng hoặc mã MD5 không khớp",
                             ErrorCode = "MTT-005",
                             ErrorName = "Lỗi tải tệp Media / Sai Checksum",
@@ -638,7 +638,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0006-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4756), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7605), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Dung lượng đĩa cục bộ không đủ để lưu cache bản tin",
                             ErrorCode = "MTT-006",
                             ErrorName = "Bộ nhớ trong đầy (>95%)",
@@ -648,7 +648,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0007-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4759), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7607), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Cảm biến nhiệt báo vượt ngưỡng an toàn (>75 độ C)",
                             ErrorCode = "MTT-007",
                             ErrorName = "Nhiệt độ CPU / Thiết bị quá cao",
@@ -658,7 +658,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("eeeeeeee-0008-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4761), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 750, DateTimeKind.Unspecified).AddTicks(7609), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "JWT Token của thiết bị không hợp lệ hoặc đã bị thu hồi",
                             ErrorCode = "MTT-008",
                             ErrorName = "Lỗi xác thực Token / Phiên làm việc hết hạn",
@@ -833,7 +833,7 @@ namespace MTC_System.Migrations
                             Address = "86/33 Âu Cơ, Phường 9, Quận Tân Bình, TP. Hồ Chí Minh",
                             ContactEmail = "support@altamedia.vn",
                             ContactPhone = "02822432432",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 821, DateTimeKind.Unspecified).AddTicks(8488), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 752, DateTimeKind.Unspecified).AddTicks(4531), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false,
                             VendorName = "Alta Media",
@@ -1090,9 +1090,8 @@ namespace MTC_System.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("FrequencyHz")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<decimal?>("FrequencyHz")
+                        .HasColumnType("numeric");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -1121,6 +1120,17 @@ namespace MTC_System.Migrations
                     b.Property<long>("SizeInBytes")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("File");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1128,8 +1138,8 @@ namespace MTC_System.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Url")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
 
                     b.HasKey("Id");
 
@@ -1180,8 +1190,13 @@ namespace MTC_System.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CategoryName")
+                        .IsUnique()
+                        .HasFilter("\"OrganizationId\" IS NULL");
+
                     b.HasIndex("OrganizationId", "CategoryName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"OrganizationId\" IS NOT NULL");
 
                     b.ToTable("MediaCategories");
 
@@ -1189,80 +1204,80 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("cccccccc-0001-0000-0000-000000000000"),
-                            CategoryName = "Chính trị - Xã hội",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(853), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Thông tin và Tin tức",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0002-0000-0000-000000000000"),
-                            CategoryName = "Kinh tế",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(856), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Quảng cáo và Tiếp thị",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0003-0000-0000-000000000000"),
-                            CategoryName = "Văn hóa - Nghệ thuật",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(858), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Giáo dục",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0004-0000-0000-000000000000"),
-                            CategoryName = "Giáo dục",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(861), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Giải trí",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0005-0000-0000-000000000000"),
-                            CategoryName = "Y tế - Sức khỏe",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(863), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Sự kiện và Hội nghị",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0006-0000-0000-000000000000"),
-                            CategoryName = "Thể thao",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(904), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Nghệ thuật và Văn hóa",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0007-0000-0000-000000000000"),
-                            CategoryName = "An ninh - Quốc phòng",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(907), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Du lịch",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0008-0000-0000-000000000000"),
-                            CategoryName = "Khoa học - Công nghệ",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(913), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Sự kiện và Khuyến mãi",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0009-0000-0000-000000000000"),
-                            CategoryName = "Môi trường",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(915), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Giao thông và Đô thị",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0010-0000-0000-000000000000"),
-                            CategoryName = "Quảng cáo",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(917), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Y tế",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
@@ -1270,7 +1285,7 @@ namespace MTC_System.Migrations
                         {
                             Id = new Guid("cccccccc-0011-0000-0000-000000000000"),
                             CategoryName = "Khác",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(919), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         });
@@ -1282,17 +1297,25 @@ namespace MTC_System.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ChecksumMd5")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ChecksumSha256")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("ChunkSize")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExpectedFileName")
                         .IsRequired()
@@ -1301,6 +1324,9 @@ namespace MTC_System.Migrations
 
                     b.Property<long>("ExpectedFileSize")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FailedReason")
                         .HasMaxLength(500)
@@ -1311,14 +1337,6 @@ namespace MTC_System.Migrations
 
                     b.Property<Guid?>("MediaId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("ChecksumMd5")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ChecksumSha256")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<byte[]>("ReceivedChunksBitmap")
                         .IsRequired()
@@ -1333,9 +1351,6 @@ namespace MTC_System.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
-
-                    b.Property<int>("ChunkSize")
-                        .HasColumnType("integer");
 
                     b.Property<int>("TotalChunks")
                         .HasColumnType("integer");
@@ -1485,7 +1500,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("ffffffff-0001-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 825, DateTimeKind.Unspecified).AddTicks(3121), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2859), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Dành cho cơ sở quy mô nhỏ, tối đa 5 màn hình/loa, dung lượng 50GB",
                             DurationMonths = 1,
                             IsActive = true,
@@ -1500,7 +1515,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("ffffffff-0002-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 825, DateTimeKind.Unspecified).AddTicks(3125), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2863), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Dành cho cơ sở quy mô vừa, tối đa 20 màn hình/loa, dung lượng 200GB",
                             DurationMonths = 6,
                             IsActive = true,
@@ -1515,7 +1530,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("ffffffff-0003-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 825, DateTimeKind.Unspecified).AddTicks(3129), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2867), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Dành cho chuỗi cơ sở lớn, tối đa 100 màn hình/loa, dung lượng 1000GB (1TB)",
                             DurationMonths = 12,
                             IsActive = true,
@@ -1771,7 +1786,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("aaaaaaaa-0001-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3686), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6292), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Toàn quyền quản lý hệ thống",
                             IsDeleted = false,
                             RoleCode = "ADMINISTRATOR",
@@ -1780,7 +1795,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("aaaaaaaa-0002-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3690), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6296), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Tạo và quản lý bản tin, media, playlist",
                             IsDeleted = false,
                             RoleCode = "CREATOR",
@@ -1789,7 +1804,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("aaaaaaaa-0003-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3693), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6298), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Quản lý thiết bị và kết nối kỹ thuật",
                             IsDeleted = false,
                             RoleCode = "IT",
@@ -1798,7 +1813,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("aaaaaaaa-0004-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3696), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6300), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phê duyệt bản tin và media trước khi phát sóng",
                             IsDeleted = false,
                             RoleCode = "APPROVER",

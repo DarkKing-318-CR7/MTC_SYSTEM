@@ -81,6 +81,8 @@ builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // [Dev 2]
 builder.Services.AddScoped<IChunkedMediaUploadSvc, ChunkedMediaUploadSvc>();
+builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<IMediaCategoryService, MediaCategoryService>();
 
 // [Dev 3]
 builder.Services.AddScoped<IBroadcastService, BroadcastService>();
@@ -141,6 +143,7 @@ app.UseExceptionHandler(errorApp =>
         var statusCode = exception switch
         {
             DeviceModuleException deviceException => deviceException.StatusCode,
+            MediaModuleException mediaException => mediaException.StatusCode,
             DbUpdateException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };
@@ -148,6 +151,7 @@ app.UseExceptionHandler(errorApp =>
         var message = exception switch
         {
             DeviceModuleException deviceException => deviceException.Message,
+            MediaModuleException mediaException => mediaException.Message,
             DbUpdateException => "Dữ liệu xung đột với ràng buộc của cơ sở dữ liệu.",
             _ => "Đã xảy ra lỗi trong quá trình xử lý yêu cầu."
         };
