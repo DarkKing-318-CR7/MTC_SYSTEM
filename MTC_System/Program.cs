@@ -74,6 +74,8 @@ builder.Services.AddAuthorization();
 // 4. Đăng ký Services (Dependency Injection)
 // [Dev 1]
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IFacilityService, FacilityService>();
 builder.Services.AddScoped<IPackageService, PackageService>();
@@ -170,27 +172,100 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Tự động khởi tạo tài khoản Quản trị viên (admin / Admin@123456) nếu chưa có
+// Tự động khởi tạo dữ liệu mặc định: Quyền chức năng, Vai trò Admin và Tài khoản admin / Admin@123456
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyDbContext>();
     try
     {
-        if (context.Database.CanConnect() && !context.Users.Any())
+        if (context.Database.CanConnect())
         {
-            var adminUser = new MTC_System.Models.User
+            var adminRoleId = Guid.Parse("aaaaaaaa-0001-0000-0000-000000000000");
+
+            // 1. Tự động khởi tạo danh mục Permissions & gán cho ADMINISTRATOR
+            if (!context.Permissions.Any())
             {
-                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123456"),
-                FullName = "Quản trị viên Hệ thống",
-                Email = "admin@mtc.vn",
-                PhoneNumber = "0901234567",
-                IsActive = true
-            };
-            context.Users.Add(adminUser);
-            context.SaveChanges();
-            Console.WriteLine("[MTC_System] Đã tự động khởi tạo tài khoản mặc định: admin / Admin@123456");
+                var defaultPermissions = new List<MTC_System.Models.Permission>
+                {
+                    // Nhóm: Người dùng & Phân quyền
+                    new() { Id = Guid.Parse("bbbbbbbb-0001-0000-0000-000000000001"), PermissionCode = "USERS_VIEW", PermissionName = "Xem danh sách người dùng", ModuleGroup = "Người dùng & Phân quyền" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0001-0000-0000-000000000002"), PermissionCode = "USERS_MANAGE", PermissionName = "Tạo, sửa, khóa người dùng", ModuleGroup = "Người dùng & Phân quyền" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0001-0000-0000-000000000003"), PermissionCode = "ROLES_MANAGE", PermissionName = "Quản lý vai trò & ma trận phân quyền", ModuleGroup = "Người dùng & Phân quyền" },
+
+                    // Nhóm: Tổ chức & Cơ sở
+                    new() { Id = Guid.Parse("bbbbbbbb-0002-0000-0000-000000000001"), PermissionCode = "ORGS_VIEW", PermissionName = "Xem thông tin tổ chức & cây cơ sở", ModuleGroup = "Tổ chức & Cơ sở" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0002-0000-0000-000000000002"), PermissionCode = "ORGS_MANAGE", PermissionName = "Quản lý tổ chức & phân cấp cơ sở", ModuleGroup = "Tổ chức & Cơ sở" },
+
+                    // Nhóm: Media & Bản mẫu
+                    new() { Id = Guid.Parse("bbbbbbbb-0003-0000-0000-000000000001"), PermissionCode = "MEDIA_VIEW", PermissionName = "Xem kho media", ModuleGroup = "Media & Bản mẫu" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0003-0000-0000-000000000002"), PermissionCode = "MEDIA_UPLOAD", PermissionName = "Tải lên media dung lượng lớn", ModuleGroup = "Media & Bản mẫu" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0003-0000-0000-000000000003"), PermissionCode = "MEDIA_APPROVE", PermissionName = "Phê duyệt hoặc từ chối media", ModuleGroup = "Media & Bản mẫu" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0003-0000-0000-000000000004"), PermissionCode = "TEMPLATE_MANAGE", PermissionName = "Quản lý Template & Playlist", ModuleGroup = "Media & Bản mẫu" },
+
+                    // Nhóm: Bản tin & Lịch phát
+                    new() { Id = Guid.Parse("bbbbbbbb-0004-0000-0000-000000000001"), PermissionCode = "BROADCAST_VIEW", PermissionName = "Xem danh sách bản tin & lịch phát", ModuleGroup = "Bản tin & Lịch phát" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0004-0000-0000-000000000002"), PermissionCode = "BROADCAST_CREATE", PermissionName = "Tạo bản tin & thiết lập lịch phát", ModuleGroup = "Bản tin & Lịch phát" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0004-0000-0000-000000000003"), PermissionCode = "BROADCAST_APPROVE", PermissionName = "Phê duyệt bản tin", ModuleGroup = "Bản tin & Lịch phát" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0004-0000-0000-000000000004"), PermissionCode = "BROADCAST_EMERGENCY", PermissionName = "Phát bản tin khẩn cấp ghi đè", ModuleGroup = "Bản tin & Lịch phát" },
+
+                    // Nhóm: Thiết bị & Mạng
+                    new() { Id = Guid.Parse("bbbbbbbb-0005-0000-0000-000000000001"), PermissionCode = "DEVICE_VIEW", PermissionName = "Xem danh sách & trạng thái thiết bị", ModuleGroup = "Thiết bị & Mạng" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0005-0000-0000-000000000002"), PermissionCode = "DEVICE_CONTROL", PermissionName = "Điều khiển âm lượng, Reboot từ xa", ModuleGroup = "Thiết bị & Mạng" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0005-0000-0000-000000000003"), PermissionCode = "DEVICE_MANAGE", PermissionName = "Thêm, gán nhóm, mã lỗi thiết bị", ModuleGroup = "Thiết bị & Mạng" },
+
+                    // Nhóm: Gói cước & Báo cáo
+                    new() { Id = Guid.Parse("bbbbbbbb-0006-0000-0000-000000000001"), PermissionCode = "PACKAGE_MANAGE", PermissionName = "Quản lý gói cước & hợp đồng", ModuleGroup = "Gói cước & Báo cáo" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0006-0000-0000-000000000002"), PermissionCode = "REPORT_VIEW", PermissionName = "Xem báo cáo thống kê Dashboard", ModuleGroup = "Gói cước & Báo cáo" },
+                    new() { Id = Guid.Parse("bbbbbbbb-0006-0000-0000-000000000003"), PermissionCode = "AUDITLOG_VIEW", PermissionName = "Xem nhật ký kiểm toán hệ thống", ModuleGroup = "Gói cước & Báo cáo" }
+                };
+
+                context.Permissions.AddRange(defaultPermissions);
+                context.SaveChanges();
+
+                // Gán tất cả quyền cho ADMINISTRATOR
+                foreach (var perm in defaultPermissions)
+                {
+                    context.RolePermissions.Add(new MTC_System.Models.RolePermission
+                    {
+                        RoleId = adminRoleId,
+                        PermissionId = perm.Id
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[MTC_System] Đã tự động khởi tạo danh mục 18 Permissions và Role Matrix.");
+            }
+
+            // 2. Tự động khởi tạo tài khoản Quản trị viên (admin / Admin@123456)
+            var adminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            var adminUser = context.Users.FirstOrDefault(u => u.Id == adminId || u.Username == "admin");
+            if (adminUser == null)
+            {
+                adminUser = new MTC_System.Models.User
+                {
+                    Id = adminId,
+                    Username = "admin",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123456"),
+                    FullName = "Quản trị viên Hệ thống",
+                    Email = "admin@mtc.vn",
+                    PhoneNumber = "0901234567",
+                    IsActive = true
+                };
+                context.Users.Add(adminUser);
+                context.SaveChanges();
+                Console.WriteLine("[MTC_System] Đã tự động khởi tạo tài khoản mặc định: admin / Admin@123456");
+            }
+
+            // Gán Role ADMINISTRATOR cho adminUser nếu chưa có
+            bool hasAdminRole = context.UserRoles.Any(ur => ur.UserId == adminUser.Id && ur.RoleId == adminRoleId && !ur.IsDeleted);
+            if (!hasAdminRole)
+            {
+                context.UserRoles.Add(new MTC_System.Models.UserRole
+                {
+                    UserId = adminUser.Id,
+                    RoleId = adminRoleId
+                });
+                context.SaveChanges();
+            }
         }
     }
     catch (Exception ex)
