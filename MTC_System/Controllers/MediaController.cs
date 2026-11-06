@@ -64,14 +64,18 @@ public sealed class MediaController : ControllerBase
         else
         {
             // Người dùng hệ thống (User JWT)
-            if (!TryGetScope(out var organizationId, out var facilityId))
-                return Forbid();
+            bool isAdmin = User.IsInRole("ADMINISTRATOR") || User.IsInRole("Administrator");
+            if (!isAdmin)
+            {
+                if (!TryGetScope(out var organizationId, out var facilityId))
+                    return Forbid();
 
-            if (organizationId != media.OrganizationId)
-                return Forbid();
+                if (organizationId != media.OrganizationId)
+                    return Forbid();
 
-            if (facilityId.HasValue && facilityId.Value != media.FacilityId)
-                return Forbid();
+                if (!await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken))
+                    return Forbid();
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(media.Url))

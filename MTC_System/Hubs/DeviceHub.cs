@@ -201,19 +201,30 @@ public sealed class DeviceHub : Hub
             .OrderByDescending(h => h.StartedAt)
             .FirstOrDefaultAsync();
 
-        var normalizedResult = request.Result?.Trim();
-        if (string.Equals(normalizedResult, "Thành công", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(normalizedResult, "Success", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(normalizedResult, "Hoàn thành", StringComparison.OrdinalIgnoreCase) ||
-            string.IsNullOrWhiteSpace(normalizedResult))
+        if (string.IsNullOrWhiteSpace(request.Result))
+        {
+            _logger.LogWarning("Rejecting playback report for broadcast {BroadcastId} because result is empty.", request.BroadcastId);
+            return false;
+        }
+
+        var rawResult = request.Result.Trim();
+        string normalizedResult;
+        if (string.Equals(rawResult, "Hoàn thành", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(rawResult, "Thành công", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(rawResult, "Success", StringComparison.OrdinalIgnoreCase))
         {
             normalizedResult = "Hoàn thành";
         }
-        else if (string.Equals(normalizedResult, "Failed", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(normalizedResult, "Error", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(normalizedResult, "Thất bại", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(rawResult, "Thất bại", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(rawResult, "Failed", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(rawResult, "Error", StringComparison.OrdinalIgnoreCase))
         {
             normalizedResult = "Thất bại";
+        }
+        else
+        {
+            _logger.LogWarning("Rejecting playback report for broadcast {BroadcastId} with invalid result '{Result}'.", request.BroadcastId, request.Result);
+            return false;
         }
 
         if (existingHistory != null)

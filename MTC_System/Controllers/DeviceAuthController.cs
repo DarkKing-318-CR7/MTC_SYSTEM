@@ -167,19 +167,28 @@ public sealed class DeviceAuthController : ControllerBase
             .OrderByDescending(h => h.StartedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var normalizedResult = request.Result?.Trim();
-        if (string.Equals(normalizedResult, "Thành công", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(normalizedResult, "Success", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(normalizedResult, "Hoàn thành", StringComparison.OrdinalIgnoreCase) ||
-            string.IsNullOrWhiteSpace(normalizedResult))
+        if (string.IsNullOrWhiteSpace(request.Result))
+        {
+            return BadRequest(ApiResponse<bool>.Fail("Kết quả phát sóng không được để trống."));
+        }
+
+        var rawResult = request.Result.Trim();
+        string normalizedResult;
+        if (string.Equals(rawResult, "Hoàn thành", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(rawResult, "Thành công", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(rawResult, "Success", StringComparison.OrdinalIgnoreCase))
         {
             normalizedResult = "Hoàn thành";
         }
-        else if (string.Equals(normalizedResult, "Failed", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(normalizedResult, "Error", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(normalizedResult, "Thất bại", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(rawResult, "Thất bại", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(rawResult, "Failed", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(rawResult, "Error", StringComparison.OrdinalIgnoreCase))
         {
             normalizedResult = "Thất bại";
+        }
+        else
+        {
+            return BadRequest(ApiResponse<bool>.Fail($"Giá trị kết quả phát '{request.Result}' không hợp lệ. Chỉ chấp nhận 'Hoàn thành' hoặc 'Thất bại'."));
         }
 
         if (existingHistory != null)

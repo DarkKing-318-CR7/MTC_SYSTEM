@@ -141,48 +141,66 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
 
                     foreach (var item in activeItems)
                     {
-                        mediaDict.TryGetValue(item.MediaId, out var itemMedia);
-                        var itemUrl = !string.IsNullOrWhiteSpace(itemMedia?.Url)
+                        if (!mediaDict.TryGetValue(item.MediaId, out var itemMedia) || itemMedia == null || itemMedia.IsDeleted)
+                        {
+                            // P1 Fix: Bỏ qua item trỏ đến media đã bị xóa hoặc không tồn tại, tuyệt đối không tạo URL giả 404
+                            _logger.LogWarning("PlaylistItem {ItemId} in Playlist {PlaylistId} references deleted or missing media {MediaId}. Skipping item.",
+                                item.Id, playlist.Id, item.MediaId);
+                            continue;
+                        }
+
+                        var itemUrl = !string.IsNullOrWhiteSpace(itemMedia.Url)
                             ? itemMedia.Url
                             : $"/api/media/{item.MediaId}/stream";
 
                         var itemDuration = item.DurationSeconds > 0
                             ? item.DurationSeconds
-                            : (itemMedia?.DurationSeconds > 0 ? itemMedia.DurationSeconds : 30);
+                            : (itemMedia.DurationSeconds > 0 ? itemMedia.DurationSeconds : 30);
 
                         calculatedTotalDuration += itemDuration;
 
                         playlistItemsPayload.Add(new
                         {
                             mediaId = item.MediaId,
-                            mediaName = itemMedia?.MediaName ?? "Media Item",
+                            mediaName = itemMedia.MediaName ?? "Media Item",
                             displayOrder = item.DisplayOrder,
                             durationSeconds = itemDuration,
                             mediaUrl = itemUrl,
-                            checksum = itemMedia?.ChecksumSha256 ?? itemMedia?.ChecksumMd5
+                            checksum = itemMedia.ChecksumSha256 ?? itemMedia.ChecksumMd5
                         });
                     }
 
-                    durationSeconds = playlist.TotalDurationSeconds > 0 ? playlist.TotalDurationSeconds : calculatedTotalDuration;
-                    var firstItem = activeItems[0];
-                    mediaDict.TryGetValue(firstItem.MediaId, out media);
+                    if (playlistItemsPayload.Count > 0)
+                    {
+                        durationSeconds = playlist.TotalDurationSeconds > 0 ? playlist.TotalDurationSeconds : calculatedTotalDuration;
+                        var firstValidMediaId = (Guid)playlistItemsPayload[0].GetType().GetProperty("mediaId")!.GetValue(playlistItemsPayload[0])!;
+                        mediaDict.TryGetValue(firstValidMediaId, out media);
+                    }
+                    else
+                    {
+                        playlistItemsPayload = null;
+                    }
                 }
             }
         }
 
-        string mediaUrl;
-        if (media != null)
+        // P1 Fix: Kiểm tra chặt chẽ nội dung phát sóng hợp lệ.
+        // Nếu bản tin không có media hợp lệ và không có playlist với ít nhất 1 media còn hoạt động,
+        // TUYỆT ĐỐI KHÔNG dispatch, không chiếm khóa occurrence, không gửi lệnh giả tới thiết bị!
+        bool hasPlayableContent = media != null || (playlistItemsPayload != null && playlistItemsPayload.Count > 0);
+        if (!hasPlayableContent)
         {
-            mediaUrl = !string.IsNullOrWhiteSpace(media.Url) ? media.Url : $"/api/media/{media.Id}/stream";
-            if (durationSeconds <= 0)
-            {
-                durationSeconds = media.DurationSeconds > 0 ? media.DurationSeconds : 30;
-            }
+            _logger.LogWarning("Broadcast {BroadcastId} has no playable media or valid playlist items. Skipping dispatch.", broadcastId);
+            return 0;
         }
-        else
+
+        string mediaUrl = !string.IsNullOrWhiteSpace(media?.Url)
+            ? media.Url
+            : $"/api/media/{media!.Id}/stream";
+
+        if (durationSeconds <= 0)
         {
-            mediaUrl = $"/api/broadcasts/{broadcast.Id}/content";
-            durationSeconds = 30;
+            durationSeconds = media.DurationSeconds > 0 ? media.DurationSeconds : 30;
         }
 
         foreach (var deviceId in targetDeviceIds)

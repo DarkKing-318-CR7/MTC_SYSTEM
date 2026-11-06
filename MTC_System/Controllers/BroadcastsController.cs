@@ -1,6 +1,9 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using MTC_System.DTOs;
 using MTC_System.Common;
 using MTC_System.Services;
@@ -52,14 +55,42 @@ namespace MTC_System.Controllers
 
         /// <summary>
         /// USR-BRD-Content: Lấy nội dung đa phương tiện hoặc cấu hình phát sóng của bản tin
+        /// Yêu cầu xác thực: User Bearer JWT hoặc DeviceBearer JWT (kiểm tra phân quyền phạm vi tổ chức)
         /// </summary>
         [HttpGet("{id:guid}/content")]
+        [Authorize(AuthenticationSchemes = $"{Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme},DeviceBearer")]
         public async Task<IActionResult> GetContent(Guid id, [FromQuery] Guid? requestingFacilityId = null)
         {
             var res = await _broadcastService.GetByIdAsync(id, requestingFacilityId);
             if (!res.Success || res.Data == null) return NotFound(res);
 
             var broadcast = res.Data;
+
+            // Kiểm tra phân quyền phạm vi tổ chức (Chặn truy cập chéo tổ chức)
+            bool isAdmin = User.IsInRole("ADMINISTRATOR") || User.IsInRole("Administrator");
+            if (!isAdmin)
+            {
+                var tokenVersion = User.FindFirst("token_version")?.Value;
+                if (!string.IsNullOrEmpty(tokenVersion))
+                {
+                    // Caller là Device
+                    var deviceIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                    if (!Guid.TryParse(deviceIdClaim, out var deviceId)) return Forbid();
+
+                    var dbContext = HttpContext.RequestServices.GetRequiredService<MTC_System.Data.MyDbContext>();
+                    var device = await dbContext.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId && !d.IsDeleted);
+                    if (device == null || device.OrganizationId != broadcast.OrganizationId)
+                        return Forbid();
+                }
+                else
+                {
+                    // Caller là User
+                    var orgClaim = User.FindFirst("organizationId")?.Value;
+                    if (!Guid.TryParse(orgClaim, out var userOrgId) || userOrgId != broadcast.OrganizationId)
+                        return Forbid();
+                }
+            }
+
             if (broadcast.MediaId.HasValue)
             {
                 return Redirect($"/api/media/{broadcast.MediaId.Value}/stream");
