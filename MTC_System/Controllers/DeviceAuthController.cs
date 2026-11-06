@@ -130,6 +130,71 @@ public sealed class DeviceAuthController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { commandId = request.CommandId, status = request.Status }, "Lệnh đã được ACK thành công."));
     }
 
+    /// <summary>
+    /// Báo cáo kết quả phát sóng bản tin qua REST API (tương đương SignalR Hub ReportPlaybackResult)
+    /// </summary>
+    [HttpPost("playback-result")]
+    [Authorize(AuthenticationSchemes = "DeviceBearer")]
+    public async Task<IActionResult> ReportPlaybackResult([FromBody] PlaybackReportRequest request, CancellationToken cancellationToken)
+    {
+        var deviceId = GetDeviceId();
+        if (deviceId == Guid.Empty)
+            return Unauthorized(ApiResponse<bool>.Fail("Token thiết bị không hợp lệ."));
+
+        var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == deviceId && !x.IsDeleted, cancellationToken);
+        if (device == null || !device.ActiveStatus)
+            return NotFound(ApiResponse<bool>.Fail("Thiết bị không tồn tại hoặc chưa kích hoạt."));
+
+        var broadcast = await _context.Broadcasts
+            .Include(b => b.Schedules)
+                .ThenInclude(s => s.BroadcastDevices)
+            .FirstOrDefaultAsync(b => b.Id == request.BroadcastId && !b.IsDeleted, cancellationToken);
+
+        if (broadcast == null)
+            return NotFound(ApiResponse<bool>.Fail("Bản tin không tồn tại."));
+
+        // Kiểm tra phân quyền phạm vi cơ sở / thiết bị
+        bool isSameFacility = broadcast.FacilityId == device.FacilityId && broadcast.OrganizationId == device.OrganizationId;
+        bool isTargetedDevice = broadcast.Schedules.Any(s => !s.IsDeleted && s.BroadcastDevices.Any(bd => !bd.IsDeleted && bd.DeviceId == deviceId));
+        if (!isSameFacility && !isTargetedDevice)
+        {
+            return Forbid();
+        }
+
+        // Hoàn tất lịch sử "Đang phát" hiện có thay vì tạo bản ghi trùng lặp
+        var existingHistory = await _context.DevicePlayHistories
+            .Where(h => h.DeviceId == deviceId && h.BroadcastId == request.BroadcastId && h.PlayResult == "Đang phát")
+            .OrderByDescending(h => h.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (existingHistory != null)
+        {
+            existingHistory.EndedAt = request.EndedAt.UtcDateTime;
+            existingHistory.PlayResult = request.Result;
+            existingHistory.Notes = string.IsNullOrWhiteSpace(existingHistory.Notes)
+                ? request.Notes
+                : $"{existingHistory.Notes}; Result={request.Result}; ReportNotes={request.Notes}";
+        }
+        else
+        {
+            _context.DevicePlayHistories.Add(new DevicePlayHistory
+            {
+                DeviceId = deviceId,
+                BroadcastId = request.BroadcastId,
+                StartedAt = request.StartedAt.UtcDateTime,
+                EndedAt = request.EndedAt.UtcDateTime,
+                PlayResult = request.Result,
+                Notes = request.Notes
+            });
+        }
+
+        device.PlayStatus = "Dừng phát bản tin";
+        device.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(true, "Báo cáo kết quả phát sóng thành công."));
+    }
+
     private Guid GetDeviceId()
     {
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);

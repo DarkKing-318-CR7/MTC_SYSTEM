@@ -42,28 +42,42 @@ public sealed class BroadcastSchedulerHostedService : BackgroundService
         var context = scope.ServiceProvider.GetRequiredService<MyDbContext>();
         var dispatcher = scope.ServiceProvider.GetRequiredService<IBroadcastRealtimeDispatcher>();
 
-        var now = DateTimeOffset.UtcNow;
-        var currentTime = now.TimeOfDay;
+        // P1 – Query organization timezone settings (fallback "SE Asia Standard Time")
+        var orgTimezones = await context.SystemSettings
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted && s.SettingKey == "TIMEZONE")
+            .ToDictionaryAsync(s => s.OrganizationId, s => s.SettingValue, cancellationToken);
 
-        // Find broadcasts that are approved ("Đã duyệt" or "Đang phát")
+        // P0 – Find broadcasts that are approved ("Chưa phát", "Đã duyệt", or "Đang phát")
         var activeBroadcasts = await context.Broadcasts
             .AsNoTracking()
             .Include(b => b.Schedules)
                 .ThenInclude(s => s.TimeSlots)
-            .Where(b => !b.IsDeleted && (b.Status == "Đã duyệt" || b.Status == "Đang phát"))
+            .Where(b => !b.IsDeleted && (b.Status == "Chưa phát" || b.Status == "Đã duyệt" || b.Status == "Đang phát"))
             .ToListAsync(cancellationToken);
 
         int count = 0;
+        var broadcastsToUpdateStatus = new HashSet<Guid>();
+
         foreach (var broadcast in activeBroadcasts)
         {
+            var tzString = orgTimezones.TryGetValue(broadcast.OrganizationId, out var tz) ? tz : "SE Asia Standard Time";
+            var orgTimeZone = ResolveTimeZone(tzString);
+
+            // Compute current time in the organization's business timezone (e.g. UTC+7)
+            var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, orgTimeZone);
+            var currentTime = localNow.TimeOfDay;
+
             foreach (var schedule in broadcast.Schedules.Where(s => !s.IsDeleted))
             {
-                // 1. Kiểm tra dải ngày
-                if (now < schedule.StartDate || now > schedule.EndDate)
+                // 1. Kiểm tra dải ngày theo múi giờ địa phương
+                var localStartDate = TimeZoneInfo.ConvertTime(schedule.StartDate, orgTimeZone);
+                var localEndDate = TimeZoneInfo.ConvertTime(schedule.EndDate, orgTimeZone);
+                if (localNow < localStartDate || localNow > localEndDate)
                     continue;
 
                 // 2. Kiểm tra chu kỳ lặp
-                if (!IsDateMatchingRepeatRule(schedule, now))
+                if (!IsDateMatchingRepeatRule(schedule, localNow))
                     continue;
 
                 // 3. Kiểm tra khung giờ (TimeSlots)
@@ -79,10 +93,17 @@ public sealed class BroadcastSchedulerHostedService : BackgroundService
                             broadcast.Id,
                             schedule.Id,
                             slot.Id,
-                            now,
+                            localNow,
                             cancellationToken);
 
-                        if (dispatched > 0) count++;
+                        if (dispatched > 0)
+                        {
+                            count++;
+                            if (broadcast.Status == "Chưa phát" || broadcast.Status == "Đã duyệt")
+                            {
+                                broadcastsToUpdateStatus.Add(broadcast.Id);
+                            }
+                        }
                     }
                 }
                 else if (schedule.TimeSlots.Count == 0)
@@ -92,15 +113,68 @@ public sealed class BroadcastSchedulerHostedService : BackgroundService
                         broadcast.Id,
                         schedule.Id,
                         null,
-                        now,
+                        localNow,
                         cancellationToken);
 
-                    if (dispatched > 0) count++;
+                    if (dispatched > 0)
+                    {
+                        count++;
+                        if (broadcast.Status == "Chưa phát" || broadcast.Status == "Đã duyệt")
+                        {
+                            broadcastsToUpdateStatus.Add(broadcast.Id);
+                        }
+                    }
                 }
             }
         }
 
+        // Cập nhật trạng thái bản tin sang "Đang phát" khi đã bắn lệnh điều phối thành công
+        if (broadcastsToUpdateStatus.Count > 0)
+        {
+            var broadcastsToUpdate = await context.Broadcasts
+                .Where(b => broadcastsToUpdateStatus.Contains(b.Id))
+                .ToListAsync(cancellationToken);
+
+            foreach (var b in broadcastsToUpdate)
+            {
+                if (b.Status != "Đang phát")
+                {
+                    b.Status = "Đang phát";
+                    b.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
         return count;
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string? tzString)
+    {
+        if (string.IsNullOrWhiteSpace(tzString))
+            tzString = "SE Asia Standard Time";
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(tzString);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            try
+            {
+                if (tzString.Equals("SE Asia Standard Time", StringComparison.OrdinalIgnoreCase) ||
+                    tzString.Contains("07:00") || tzString.Contains("Bangkok") || tzString.Contains("Hanoi") || tzString.Contains("Vietnam"))
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+                }
+                return TimeZoneInfo.CreateCustomTimeZone("UTC+07:00", TimeSpan.FromHours(7), "SE Asia Standard Time", "SE Asia Standard Time");
+            }
+            catch
+            {
+                return TimeZoneInfo.CreateCustomTimeZone("UTC+07:00", TimeSpan.FromHours(7), "SE Asia Standard Time", "SE Asia Standard Time");
+            }
+        }
     }
 
     private static bool IsDateMatchingRepeatRule(BroadcastSchedule schedule, DateTimeOffset now)

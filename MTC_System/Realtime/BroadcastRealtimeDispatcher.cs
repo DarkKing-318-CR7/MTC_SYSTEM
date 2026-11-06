@@ -91,36 +91,84 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
         var activeScheduleId = scheduleId ?? broadcast.Schedules.FirstOrDefault()?.Id ?? Guid.Empty;
         var activeTimeSlotId = timeSlotId ?? broadcast.Schedules.SelectMany(s => s.TimeSlots).FirstOrDefault()?.Id ?? Guid.Empty;
 
+        // P1 – Trích xuất thông tin Media thật theo hợp đồng DEVICE_REALTIME_CONTRACT.md
+        Media? media = null;
+        if (broadcast.MediaId.HasValue)
+        {
+            media = await _context.Media.AsNoTracking().FirstOrDefaultAsync(m => m.Id == broadcast.MediaId.Value, cancellationToken);
+        }
+
+        string mediaUrl = !string.IsNullOrWhiteSpace(media?.Url)
+            ? media.Url
+            : (!string.IsNullOrWhiteSpace(media?.FilePath)
+                ? media.FilePath
+                : (!string.IsNullOrWhiteSpace(media?.SourceUrl)
+                    ? media.SourceUrl
+                    : $"/api/media/{broadcast.MediaId ?? broadcast.Id}/stream"));
+
+        int durationSeconds = media?.DurationSeconds > 0 ? media.DurationSeconds : 30;
+
         foreach (var deviceId in targetDeviceIds)
         {
             // Idempotency Occurrence Key: unique per broadcast, schedule, timeslot, date, and device
             var occurrenceKey = $"OCC:{broadcast.Id}:{activeScheduleId}:{activeTimeSlotId}:{dateKey}:{deviceId}";
 
-            // 1. In-memory thread-safe idempotency check
-            if (!_occurrenceManager.TryClaim(occurrenceKey))
-            {
-                _logger.LogInformation("Occurrence {OccurrenceKey} was already claimed in-memory. Skipping duplicate dispatch.", occurrenceKey);
-                continue;
-            }
-
-            // 2. Persistent database check (in case of server restart)
+            // 1. Kiểm tra CSDL xem occurrence này đã được điều phối thành công ("Đang phát" hoặc "Hoàn thành") hay chưa
             var alreadyDispatchedInDb = await _context.DevicePlayHistories
                 .AnyAsync(h => h.BroadcastId == broadcast.Id &&
                                h.DeviceId == deviceId &&
+                               (h.PlayResult == "Đang phát" || h.PlayResult == "Hoàn thành") &&
                                h.Notes != null &&
                                h.Notes.Contains(occurrenceKey),
                           cancellationToken);
 
             if (alreadyDispatchedInDb)
             {
-                _logger.LogInformation("Occurrence {OccurrenceKey} was already recorded in database. Skipping duplicate dispatch.", occurrenceKey);
+                _logger.LogInformation("Occurrence {OccurrenceKey} was already successfully dispatched/completed in database. Skipping duplicate dispatch.", occurrenceKey);
+                continue;
+            }
+
+            bool isOnline = _connectionManager.TryGetConnectionId(deviceId, out var connectionId) && !string.IsNullOrEmpty(connectionId);
+
+            if (!isOnline)
+            {
+                // P1 – Thiết bị đang offline:
+                // Ghi nhận trạng thái "Thiết bị offline" vào CSDL nếu chưa có để phục vụ audit/báo cáo,
+                // TUYỆT ĐỐI KHÔNG khóa vĩnh viễn occurrence để khi thiết bị online lại trong khung giờ, scheduler sẽ khôi phục và phát lại!
+                var offlineHistoryExists = await _context.DevicePlayHistories
+                    .AnyAsync(h => h.BroadcastId == broadcast.Id &&
+                                   h.DeviceId == deviceId &&
+                                   h.PlayResult == "Thiết bị offline" &&
+                                   h.Notes != null &&
+                                   h.Notes.Contains(occurrenceKey),
+                              cancellationToken);
+
+                if (!offlineHistoryExists)
+                {
+                    _context.DevicePlayHistories.Add(new DevicePlayHistory
+                    {
+                        DeviceId = deviceId,
+                        BroadcastId = broadcast.Id,
+                        BroadcastScheduleId = activeScheduleId != Guid.Empty ? activeScheduleId : null,
+                        StartedAt = now.UtcDateTime,
+                        PlayResult = "Thiết bị offline",
+                        Notes = $"OccurrenceKey={occurrenceKey}; Status=DeviceOffline"
+                    });
+                }
+
+                _logger.LogInformation("Device {DeviceId} is offline for occurrence {OccurrenceKey}. Saved offline state and retained turn for slot recovery.", deviceId, occurrenceKey);
+                continue;
+            }
+
+            // Thiết bị đang online: Thực hiện chiếm khóa nguyên tử in-memory
+            if (!_occurrenceManager.TryClaim(occurrenceKey))
+            {
+                _logger.LogInformation("Occurrence {OccurrenceKey} was already claimed in-memory. Skipping duplicate dispatch.", occurrenceKey);
                 continue;
             }
 
             var commandId = Guid.NewGuid();
             _commandManager.RegisterCommand(commandId, deviceId, "StartBroadcast", "Pending");
-
-            bool isOnline = _connectionManager.TryGetConnectionId(deviceId, out var connectionId) && !string.IsNullOrEmpty(connectionId);
 
             var envelope = new DeviceCommandEnvelope
             {
@@ -133,30 +181,47 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
                     scheduleId = activeScheduleId,
                     timeSlotId = activeTimeSlotId,
                     facilityId = broadcast.FacilityId,
+                    broadcastCode = broadcast.BroadcastCode,
+                    broadcastName = broadcast.BroadcastName,
+                    mediaUrl = mediaUrl,
+                    durationSeconds = durationSeconds,
+                    checksum = media?.ChecksumSha256 ?? media?.ChecksumMd5,
                     occurrenceKey = occurrenceKey,
                     sentAt = now
                 }
             };
 
-            if (isOnline)
-            {
-                await _hubContext.Clients.Client(connectionId!).SendAsync("ReceiveCommand", envelope, cancellationToken);
-                _commandManager.MarkSent(commandId);
-                dispatchedCount++;
-            }
+            await _hubContext.Clients.Client(connectionId!).SendAsync("ReceiveCommand", envelope, cancellationToken);
+            _commandManager.MarkSent(commandId);
+            dispatchedCount++;
 
-            // Ghi nhận DevicePlayHistory trạng thái ban đầu gắn kèm OccurrenceKey để bảo toàn Idempotency
-            _context.DevicePlayHistories.Add(new DevicePlayHistory
+            // Nếu trước đó đã ghi nhận "Thiết bị offline" cho occurrence này, nâng cấp bản ghi sang "Đang phát"
+            var existingOfflineHistory = await _context.DevicePlayHistories
+                .FirstOrDefaultAsync(h => h.BroadcastId == broadcast.Id &&
+                                          h.DeviceId == deviceId &&
+                                          h.PlayResult == "Thiết bị offline" &&
+                                          h.Notes != null &&
+                                          h.Notes.Contains(occurrenceKey),
+                                     cancellationToken);
+
+            if (existingOfflineHistory != null)
             {
-                DeviceId = deviceId,
-                BroadcastId = broadcast.Id,
-                BroadcastScheduleId = activeScheduleId != Guid.Empty ? activeScheduleId : null,
-                StartedAt = now.UtcDateTime,
-                PlayResult = isOnline ? "Đang phát" : "Thiết bị offline",
-                Notes = isOnline
-                    ? $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=SentRealtime"
-                    : $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=DeviceOffline"
-            });
+                existingOfflineHistory.StartedAt = now.UtcDateTime;
+                existingOfflineHistory.PlayResult = "Đang phát";
+                existingOfflineHistory.Notes = $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=SentRealtime(RecoveredOnline)";
+            }
+            else
+            {
+                _context.DevicePlayHistories.Add(new DevicePlayHistory
+                {
+                    DeviceId = deviceId,
+                    BroadcastId = broadcast.Id,
+                    BroadcastScheduleId = activeScheduleId != Guid.Empty ? activeScheduleId : null,
+                    StartedAt = now.UtcDateTime,
+                    PlayResult = "Đang phát",
+                    Notes = $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=SentRealtime"
+                });
+            }
         }
 
         if (dispatchedCount > 0 || _context.ChangeTracker.HasChanges())

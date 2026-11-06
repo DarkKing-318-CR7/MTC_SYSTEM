@@ -6,6 +6,7 @@ public interface IDispatchOccurrenceManager
 {
     bool IsDispatched(string occurrenceKey);
     bool TryClaim(string occurrenceKey);
+    bool Release(string occurrenceKey);
     void MarkDispatched(string occurrenceKey);
     IReadOnlyCollection<string> GetDispatchedOccurrences();
 }
@@ -23,6 +24,9 @@ public sealed class DispatchOccurrenceManager : IDispatchOccurrenceManager
 
     public bool TryClaim(string occurrenceKey) =>
         _dispatchedOccurrences.TryAdd(occurrenceKey, DateTimeOffset.UtcNow);
+
+    public bool Release(string occurrenceKey) =>
+        _dispatchedOccurrences.TryRemove(occurrenceKey, out _);
 
     public void MarkDispatched(string occurrenceKey) =>
         _dispatchedOccurrences[occurrenceKey] = DateTimeOffset.UtcNow;

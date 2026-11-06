@@ -177,15 +177,53 @@ public sealed class DeviceHub : Hub
         var deviceId = GetDeviceId();
         if (deviceId == Guid.Empty) return false;
 
-        _context.DevicePlayHistories.Add(new DevicePlayHistory
+        var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == deviceId && !x.IsDeleted);
+        if (device == null || !device.ActiveStatus) return false;
+
+        // P1 – Kiểm tra bản tin tồn tại và phạm vi dữ liệu thiết bị/cơ sở
+        var broadcast = await _context.Broadcasts
+            .Include(b => b.Schedules)
+                .ThenInclude(s => s.BroadcastDevices)
+            .FirstOrDefaultAsync(b => b.Id == request.BroadcastId && !b.IsDeleted);
+
+        if (broadcast == null) return false;
+
+        bool isSameFacility = broadcast.FacilityId == device.FacilityId && broadcast.OrganizationId == device.OrganizationId;
+        bool isTargetedDevice = broadcast.Schedules.Any(s => !s.IsDeleted && s.BroadcastDevices.Any(bd => !bd.IsDeleted && bd.DeviceId == deviceId));
+        if (!isSameFacility && !isTargetedDevice)
         {
-            DeviceId = deviceId,
-            BroadcastId = request.BroadcastId,
-            StartedAt = request.StartedAt.UtcDateTime,
-            EndedAt = request.EndedAt.UtcDateTime,
-            PlayResult = request.Result,
-            Notes = request.Notes
-        });
+            return false;
+        }
+
+        // P1 – Hoàn tất lịch sử "Đang phát" hiện có thay vì tạo thêm bản ghi trùng lặp
+        var existingHistory = await _context.DevicePlayHistories
+            .Where(h => h.DeviceId == deviceId && h.BroadcastId == request.BroadcastId && h.PlayResult == "Đang phát")
+            .OrderByDescending(h => h.StartedAt)
+            .FirstOrDefaultAsync();
+
+        if (existingHistory != null)
+        {
+            existingHistory.EndedAt = request.EndedAt.UtcDateTime;
+            existingHistory.PlayResult = request.Result;
+            existingHistory.Notes = string.IsNullOrWhiteSpace(existingHistory.Notes)
+                ? request.Notes
+                : $"{existingHistory.Notes}; Result={request.Result}; ReportNotes={request.Notes}";
+        }
+        else
+        {
+            _context.DevicePlayHistories.Add(new DevicePlayHistory
+            {
+                DeviceId = deviceId,
+                BroadcastId = request.BroadcastId,
+                StartedAt = request.StartedAt.UtcDateTime,
+                EndedAt = request.EndedAt.UtcDateTime,
+                PlayResult = request.Result,
+                Notes = request.Notes
+            });
+        }
+
+        device.PlayStatus = "Dừng phát bản tin";
+        device.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _context.SaveChangesAsync();
         return true;
