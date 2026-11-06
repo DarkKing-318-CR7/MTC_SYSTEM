@@ -17,29 +17,38 @@ public sealed record DeviceCommandState(
     string Status, // Pending, Sent, Acknowledged, Failed, Expired
     DateTimeOffset CreatedAt,
     DateTimeOffset? AcknowledgedAt = null,
-    string? ErrorMessage = null);
+    string? ErrorMessage = null,
+    int? TargetVolume = null);
 
 public interface IDeviceCommandManager
 {
-    void RegisterCommand(Guid commandId, Guid deviceId, string commandType, string status = "Pending");
+    void RegisterCommand(Guid commandId, Guid deviceId, string commandType, string status = "Pending", int? targetVolume = null);
     void MarkSent(Guid commandId);
     CommandAckResult ProcessAck(Guid commandId, Guid deviceId, string status, string? errorMessage);
     DeviceCommandState? GetCommand(Guid commandId);
     IReadOnlyList<DeviceCommandState> GetCommandsForDevice(Guid deviceId);
 }
 
+/// <summary>
+/// [Architecture Note / Prototype Design]
+/// DeviceCommandManager implements an in-memory concurrent store (ConcurrentDictionary)
+/// for high-throughput, low-latency realtime command state tracking and idempotent ACK handling.
+/// In production multi-node clusters, this should be backed by Redis or a dedicated persistent database table.
+/// All command activities and acknowledgements are also durably persisted to PostgreSQL via DeviceActivityLogs.
+/// </summary>
 public sealed class DeviceCommandManager : IDeviceCommandManager
 {
     private readonly ConcurrentDictionary<Guid, DeviceCommandState> _commands = new();
 
-    public void RegisterCommand(Guid commandId, Guid deviceId, string commandType, string status = "Pending")
+    public void RegisterCommand(Guid commandId, Guid deviceId, string commandType, string status = "Pending", int? targetVolume = null)
     {
         _commands[commandId] = new DeviceCommandState(
             commandId,
             deviceId,
             commandType,
             status,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            TargetVolume: targetVolume);
     }
 
     public void MarkSent(Guid commandId)
@@ -54,16 +63,8 @@ public sealed class DeviceCommandManager : IDeviceCommandManager
     {
         if (!_commands.TryGetValue(commandId, out var existing))
         {
-            // If command was created outside the manager or in another node, still register idempotent ack
-            _commands[commandId] = new DeviceCommandState(
-                commandId,
-                deviceId,
-                "Unknown",
-                status,
-                DateTimeOffset.UtcNow,
-                DateTimeOffset.UtcNow,
-                errorMessage);
-            return CommandAckResult.Success;
+            // Command does not exist -> return NotFound (Item 6)
+            return CommandAckResult.NotFound;
         }
 
         if (existing.DeviceId != deviceId)

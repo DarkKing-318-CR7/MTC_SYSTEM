@@ -376,7 +376,7 @@ namespace MTC_System.Services
                             if (!dto.Overwrite && !isPriority)
                             {
                                 var errorList = conflictResult.ConflictingBroadcasts
-                                    .Select(c => $"Bản tin '{c.BroadcastName}' ({c.BroadcastCode}) - { (broadcastMode == "Phát theo cơ sở" ? $"Cơ sở: {c.FacilityName}" : $"Thiết bị: {c.DeviceName}") } [{c.StartTime:hh\\:mm} - {c.EndTime:hh\\:mm}]")
+                                    .Select(c => $"Bản tin '{c.BroadcastName}' ({c.BroadcastCode}) - {(broadcastMode == "Phát theo cơ sở" ? $"Cơ sở: {c.FacilityName}" : $"Thiết bị: {c.DeviceName}")} [{c.StartTime:hh\\:mm} - {c.EndTime:hh\\:mm}]")
                                     .Distinct()
                                     .ToList();
 
@@ -1010,7 +1010,7 @@ namespace MTC_System.Services
                 if (conflict.HasConflict && !dto.Overwrite && !isPriority)
                 {
                     var errors = conflict.ConflictingBroadcasts
-                        .Select(c => $"Bản tin '{c.BroadcastName}' ({c.BroadcastCode}) - { (broadcastMode == "Phát theo cơ sở" ? $"Cơ sở: {c.FacilityName}" : $"Thiết bị: {c.DeviceName}") } [{c.StartTime:hh\\:mm} - {c.EndTime:hh\\:mm}]")
+                        .Select(c => $"Bản tin '{c.BroadcastName}' ({c.BroadcastCode}) - {(broadcastMode == "Phát theo cơ sở" ? $"Cơ sở: {c.FacilityName}" : $"Thiết bị: {c.DeviceName}")} [{c.StartTime:hh\\:mm} - {c.EndTime:hh\\:mm}]")
                         .Distinct()
                         .ToList();
 
@@ -1139,7 +1139,7 @@ namespace MTC_System.Services
                 if (conflict.HasConflict && !dto.Overwrite && !isPriority)
                 {
                     var errors = conflict.ConflictingBroadcasts
-                        .Select(c => $"Bản tin '{c.BroadcastName}' ({c.BroadcastCode}) - { (broadcastMode == "Phát theo cơ sở" ? $"Cơ sở: {c.FacilityName}" : $"Thiết bị: {c.DeviceName}") } [{c.StartTime:hh\\:mm} - {c.EndTime:hh\\:mm}]")
+                        .Select(c => $"Bản tin '{c.BroadcastName}' ({c.BroadcastCode}) - {(broadcastMode == "Phát theo cơ sở" ? $"Cơ sở: {c.FacilityName}" : $"Thiết bị: {c.DeviceName}")} [{c.StartTime:hh\\:mm} - {c.EndTime:hh\\:mm}]")
                         .Distinct()
                         .ToList();
 

@@ -50,7 +50,8 @@ public sealed class DeviceCommandsController : ControllerBase
         scope.ValidateScope(device.OrganizationId, device.FacilityId);
 
         var commandId = Guid.NewGuid();
-        _commandManager.RegisterCommand(commandId, device.Id, "SetVolume", "Pending");
+        // Register command with target volume in manager; do NOT mutate device.Volume until successful ACK! (Item 8)
+        _commandManager.RegisterCommand(commandId, device.Id, "SetVolume", "Pending", targetVolume: request.Volume);
 
         var envelope = new DeviceCommandEnvelope
         {
@@ -67,9 +68,6 @@ public sealed class DeviceCommandsController : ControllerBase
             _commandManager.MarkSent(commandId);
             sent = true;
         }
-
-        device.Volume = request.Volume;
-        device.UpdatedAt = DateTimeOffset.UtcNow;
 
         _context.DeviceActivityLogs.Add(new DeviceActivityLog
         {

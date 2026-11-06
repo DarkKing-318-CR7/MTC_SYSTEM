@@ -93,18 +93,26 @@ public sealed class DeviceAuthController : ControllerBase
 
         var ackResult = _commandManager.ProcessAck(request.CommandId, deviceId, request.Status, request.ErrorMessage);
 
+        // Command not found -> return NotFound (Item 6)
+        if (ackResult == CommandAckResult.NotFound)
+            return NotFound(ApiResponse<object>.Fail("Lệnh không tồn tại hoặc đã hết hạn."));
+
+        // Wrong device -> return Forbid
         if (ackResult == CommandAckResult.MismatchDevice)
             return Forbid();
 
+        // Duplicate ACK -> return Idempotent Success
         if (ackResult == CommandAckResult.Duplicate)
             return Ok(ApiResponse<object>.Ok(new { commandId = request.CommandId, idempotent = true }, "ACK trùng lặp đã được ghi nhận thành công."));
 
+        // Apply volume ONLY after successful ACK! (Item 8)
         var cmdState = _commandManager.GetCommand(request.CommandId);
-        if (cmdState != null && cmdState.CommandType == "SetVolume" && request.Status.Equals("Success", StringComparison.OrdinalIgnoreCase))
+        if (cmdState != null && cmdState.CommandType == "SetVolume" && request.Status.Equals("Success", StringComparison.OrdinalIgnoreCase) && cmdState.TargetVolume.HasValue)
         {
             var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == deviceId && !x.IsDeleted, cancellationToken);
             if (device != null)
             {
+                device.Volume = cmdState.TargetVolume.Value;
                 device.UpdatedAt = DateTimeOffset.UtcNow;
             }
         }

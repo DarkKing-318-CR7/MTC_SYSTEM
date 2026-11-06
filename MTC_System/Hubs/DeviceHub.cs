@@ -129,6 +129,12 @@ public sealed class DeviceHub : Hub
 
         var ackResult = _commandManager.ProcessAck(request.CommandId, deviceId, request.Status, request.ErrorMessage);
 
+        if (ackResult == CommandAckResult.NotFound)
+        {
+            _logger.LogWarning("Command {CommandId} not found during ACK from device {DeviceId}.", request.CommandId, deviceId);
+            return false;
+        }
+
         if (ackResult == CommandAckResult.MismatchDevice)
         {
             _logger.LogWarning("Device {DeviceId} attempted to ACK command {CommandId} belonging to another device.", deviceId, request.CommandId);
@@ -141,12 +147,14 @@ public sealed class DeviceHub : Hub
             return true;
         }
 
+        // Apply volume ONLY after successful ACK! (Item 8)
         var cmdState = _commandManager.GetCommand(request.CommandId);
-        if (cmdState != null && cmdState.CommandType == "SetVolume" && request.Status.Equals("Success", StringComparison.OrdinalIgnoreCase))
+        if (cmdState != null && cmdState.CommandType == "SetVolume" && request.Status.Equals("Success", StringComparison.OrdinalIgnoreCase) && cmdState.TargetVolume.HasValue)
         {
             var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == deviceId && !x.IsDeleted);
             if (device != null)
             {
+                device.Volume = cmdState.TargetVolume.Value;
                 device.UpdatedAt = DateTimeOffset.UtcNow;
             }
         }

@@ -577,7 +577,7 @@ namespace MTC_System.Services
                 var backupCodes = JsonSerializer.Deserialize<List<BackupCodeItem>>(user.BackupCodesJson);
                 if (backupCodes != null)
                 {
-                    var matched = backupCodes.FirstOrDefault(b => !b.IsUsed && 
+                    var matched = backupCodes.FirstOrDefault(b => !b.IsUsed &&
                         string.Equals(b.Code.Replace("-", ""), cleanCode.Replace("-", ""), StringComparison.OrdinalIgnoreCase));
 
                     if (matched != null)
@@ -618,7 +618,7 @@ namespace MTC_System.Services
             user.UpdatedAt = DateTimeOffset.UtcNow;
             await _context.SaveChangesAsync();
 
-            string message = isBackupCodeValid 
+            string message = isBackupCodeValid
                 ? $"Đăng nhập thành công bằng mã dự phòng. Bạn còn lại {user.BackupCodesCount}/10 mã dự phòng."
                 : "Đăng nhập thành công qua xác thực 2 bước.";
 
@@ -668,7 +668,7 @@ namespace MTC_System.Services
             if (!isTotpValid && !string.IsNullOrEmpty(user.BackupCodesJson))
             {
                 var backupCodes = JsonSerializer.Deserialize<List<BackupCodeItem>>(user.BackupCodesJson);
-                isBackupCodeValid = backupCodes?.Any(b => !b.IsUsed && 
+                isBackupCodeValid = backupCodes?.Any(b => !b.IsUsed &&
                     string.Equals(b.Code.Replace("-", ""), cleanCode.Replace("-", ""), StringComparison.OrdinalIgnoreCase)) ?? false;
             }
 

@@ -15,7 +15,7 @@ namespace MTC_System.Common
 
         /// Phục vụ XÓA MỀM (Soft Delete) theo yêu cầu SRS:
         /// Khi bấm xóa, chỉ set IsDeleted = true. Dữ liệu vẫn được giữ trong DB để đối soát.
-  
+
         public bool IsDeleted { get; set; } = false;
     }
 }

@@ -256,7 +256,7 @@ namespace MTC_System.Controllers
         #region Helper
         private Guid? GetCurrentUserId()
         {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) 
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
                            ?? User.FindFirstValue("sub");
             if (Guid.TryParse(userIdClaim, out var id))
             {

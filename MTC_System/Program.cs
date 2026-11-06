@@ -187,6 +187,7 @@ builder.Services.AddScoped<IDeviceActivationService, DeviceActivationService>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<MTC_System.Realtime.IDeviceConnectionManager, MTC_System.Realtime.DeviceConnectionManager>();
 builder.Services.AddSingleton<MTC_System.Realtime.IDeviceCommandManager, MTC_System.Realtime.DeviceCommandManager>();
+builder.Services.AddSingleton<MTC_System.Realtime.IDispatchOccurrenceManager, MTC_System.Realtime.DispatchOccurrenceManager>();
 builder.Services.AddScoped<MTC_System.Realtime.IBroadcastRealtimeDispatcher, MTC_System.Realtime.BroadcastRealtimeDispatcher>();
 
 // Background Hosted Services (Heartbeat Timeout Monitor & Broadcast Scheduler)
@@ -198,9 +199,9 @@ builder.Services.AddHostedService<MTC_System.Realtime.BroadcastSchedulerHostedSe
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "MTC System API", 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "MTC System API",
         Version = "v1",
         Description = "Hệ thống Quản trị & Điều hành Màn hình / Loa tập trung (MTC Backend)"
     });

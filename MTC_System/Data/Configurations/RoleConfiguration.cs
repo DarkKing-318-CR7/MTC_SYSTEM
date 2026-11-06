@@ -39,7 +39,7 @@ namespace MTC_System.Data.Configurations
                    .IsRequired(false);
 
             // SEED: 4 vai trò mặc định của hệ thống (OrganizationId = null)
-            
+
             builder.HasData(
                 new Role
                 {
