@@ -109,27 +109,63 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
         // P1 Fix: Trích xuất thông tin nội dung Media / Playlist thật theo DEVICE_REALTIME_CONTRACT.md
         Media? media = null;
         int durationSeconds = 0;
+        Playlist? playlist = null;
+        List<object>? playlistItemsPayload = null;
 
         if (broadcast.MediaId.HasValue)
         {
-            media = await _context.Media.AsNoTracking().FirstOrDefaultAsync(m => m.Id == broadcast.MediaId.Value, cancellationToken);
+            media = await _context.Media.AsNoTracking().FirstOrDefaultAsync(m => m.Id == broadcast.MediaId.Value && !m.IsDeleted, cancellationToken);
             if (media?.DurationSeconds > 0)
                 durationSeconds = media.DurationSeconds;
         }
         else if (broadcast.PlaylistId.HasValue)
         {
-            var playlist = await _context.Playlists
+            playlist = await _context.Playlists
                 .AsNoTracking()
                 .Include(p => p.Items)
                 .FirstOrDefaultAsync(p => p.Id == broadcast.PlaylistId.Value && !p.IsDeleted, cancellationToken);
 
             if (playlist != null && playlist.Items.Count > 0)
             {
-                var firstItem = playlist.Items.Where(i => !i.IsDeleted).OrderBy(i => i.DisplayOrder).FirstOrDefault();
-                if (firstItem != null)
+                var activeItems = playlist.Items.Where(i => !i.IsDeleted).OrderBy(i => i.DisplayOrder).ToList();
+                if (activeItems.Count > 0)
                 {
-                    media = await _context.Media.AsNoTracking().FirstOrDefaultAsync(m => m.Id == firstItem.MediaId && !m.IsDeleted, cancellationToken);
-                    durationSeconds = playlist.TotalDurationSeconds > 0 ? playlist.TotalDurationSeconds : (firstItem.DurationSeconds > 0 ? firstItem.DurationSeconds : 30);
+                    var mediaIds = activeItems.Select(i => i.MediaId).Distinct().ToList();
+                    var mediaDict = await _context.Media
+                        .AsNoTracking()
+                        .Where(m => mediaIds.Contains(m.Id) && !m.IsDeleted)
+                        .ToDictionaryAsync(m => m.Id, cancellationToken);
+
+                    playlistItemsPayload = new List<object>();
+                    int calculatedTotalDuration = 0;
+
+                    foreach (var item in activeItems)
+                    {
+                        mediaDict.TryGetValue(item.MediaId, out var itemMedia);
+                        var itemUrl = !string.IsNullOrWhiteSpace(itemMedia?.Url)
+                            ? itemMedia.Url
+                            : $"/api/media/{item.MediaId}/stream";
+
+                        var itemDuration = item.DurationSeconds > 0
+                            ? item.DurationSeconds
+                            : (itemMedia?.DurationSeconds > 0 ? itemMedia.DurationSeconds : 30);
+
+                        calculatedTotalDuration += itemDuration;
+
+                        playlistItemsPayload.Add(new
+                        {
+                            mediaId = item.MediaId,
+                            mediaName = itemMedia?.MediaName ?? "Media Item",
+                            displayOrder = item.DisplayOrder,
+                            durationSeconds = itemDuration,
+                            mediaUrl = itemUrl,
+                            checksum = itemMedia?.ChecksumSha256 ?? itemMedia?.ChecksumMd5
+                        });
+                    }
+
+                    durationSeconds = playlist.TotalDurationSeconds > 0 ? playlist.TotalDurationSeconds : calculatedTotalDuration;
+                    var firstItem = activeItems[0];
+                    mediaDict.TryGetValue(firstItem.MediaId, out media);
                 }
             }
         }
@@ -137,15 +173,7 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
         string mediaUrl;
         if (media != null)
         {
-            if (!string.IsNullOrWhiteSpace(media.Url))
-            {
-                mediaUrl = media.Url;
-            }
-            else
-            {
-                mediaUrl = $"/api/media/{media.Id}/stream";
-            }
-
+            mediaUrl = !string.IsNullOrWhiteSpace(media.Url) ? media.Url : $"/api/media/{media.Id}/stream";
             if (durationSeconds <= 0)
             {
                 durationSeconds = media.DurationSeconds > 0 ? media.DurationSeconds : 30;
@@ -166,7 +194,7 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
             var alreadyDispatchedInDb = await _context.DevicePlayHistories
                 .AnyAsync(h => h.BroadcastId == broadcast.Id &&
                                h.DeviceId == deviceId &&
-                               (h.PlayResult == "Đang phát" || h.PlayResult == "Hoàn thành") &&
+                               (h.PlayResult == "Đang phát" || h.PlayResult == "Hoàn thành" || h.PlayResult == "Thành công") &&
                                h.Notes != null &&
                                h.Notes.Contains(occurrenceKey),
                           cancellationToken);
@@ -235,6 +263,9 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
                     mediaUrl = mediaUrl,
                     durationSeconds = durationSeconds,
                     checksum = media?.ChecksumSha256 ?? media?.ChecksumMd5,
+                    playlistId = broadcast.PlaylistId,
+                    playMode = playlist?.PlayMode ?? "Theo thứ tự",
+                    playlistItems = playlistItemsPayload,
                     occurrenceKey = occurrenceKey,
                     sentAt = now
                 }

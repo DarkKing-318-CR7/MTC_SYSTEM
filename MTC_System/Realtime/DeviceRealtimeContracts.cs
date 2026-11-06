@@ -83,7 +83,7 @@ public sealed class PlaybackReportRequest
     public DateTimeOffset EndedAt { get; set; }
 
     [JsonPropertyName("result")]
-    public string Result { get; set; } = "Thành công";
+    public string Result { get; set; } = "Hoàn thành";
 
     [JsonPropertyName("errorCode")]
     public string? ErrorCode { get; set; }

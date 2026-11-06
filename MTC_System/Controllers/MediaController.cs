@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -34,14 +35,44 @@ public sealed class MediaController : ControllerBase
 
     /// <summary>
     /// Phát / tải trực tiếp luồng nội dung tệp Media (hỗ trợ HTTP Range requests cho trình phát media của thiết bị)
+    /// Yêu cầu xác thực: User Bearer JWT (kiểm tra tenant isolation) hoặc DeviceBearer JWT (kiểm tra thiết bị cùng tổ chức)
     /// </summary>
     [HttpGet("{id:guid}/stream")]
-    [AllowAnonymous]
+    [Authorize(AuthenticationSchemes = $"{JwtBearerDefaults.AuthenticationScheme},DeviceBearer")]
     public async Task<IActionResult> StreamMedia(Guid id, CancellationToken cancellationToken)
     {
         var media = await _context.Media.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted, cancellationToken);
         if (media == null)
             return NotFound(ApiResponse<string>.Fail("Không tìm thấy tệp media."));
+
+        // Kiểm tra phân quyền truy cập Media: Ngăn chặn tuyệt đối truy cập chéo tổ chức (Cross-tenant data leak)
+        var tokenVersionClaim = User.FindFirstValue("token_version");
+        if (!string.IsNullOrEmpty(tokenVersionClaim))
+        {
+            // Thiết bị (DeviceBearer JWT)
+            var deviceIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(deviceIdClaim, out var deviceId))
+                return Forbid();
+
+            var device = await _context.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId && !d.IsDeleted, cancellationToken);
+            if (device == null || !device.ActiveStatus || !device.IsActivated)
+                return Forbid();
+
+            if (device.OrganizationId != media.OrganizationId)
+                return Forbid();
+        }
+        else
+        {
+            // Người dùng hệ thống (User JWT)
+            if (!TryGetScope(out var organizationId, out var facilityId))
+                return Forbid();
+
+            if (organizationId != media.OrganizationId)
+                return Forbid();
+
+            if (facilityId.HasValue && facilityId.Value != media.FacilityId)
+                return Forbid();
+        }
 
         if (!string.IsNullOrWhiteSpace(media.Url))
         {
@@ -60,6 +91,16 @@ public sealed class MediaController : ControllerBase
         if (!System.IO.File.Exists(fullPath))
         {
             fullPath = Path.Combine(_environment.ContentRootPath, media.FilePath.TrimStart('/', '\\'));
+        }
+
+        if (!System.IO.File.Exists(fullPath))
+        {
+            fullPath = Path.Combine(AppContext.BaseDirectory, "storage", media.FilePath.TrimStart('/', '\\'));
+        }
+
+        if (!System.IO.File.Exists(fullPath))
+        {
+            fullPath = Path.Combine(AppContext.BaseDirectory, media.FilePath.TrimStart('/', '\\'));
         }
 
         if (!System.IO.File.Exists(fullPath))

@@ -201,20 +201,35 @@ public sealed class DeviceHub : Hub
             .OrderByDescending(h => h.StartedAt)
             .FirstOrDefaultAsync();
 
+        var normalizedResult = request.Result?.Trim();
+        if (string.Equals(normalizedResult, "Thành công", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedResult, "Success", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedResult, "Hoàn thành", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(normalizedResult))
+        {
+            normalizedResult = "Hoàn thành";
+        }
+        else if (string.Equals(normalizedResult, "Failed", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(normalizedResult, "Error", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(normalizedResult, "Thất bại", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedResult = "Thất bại";
+        }
+
         if (existingHistory != null)
         {
             existingHistory.EndedAt = request.EndedAt.UtcDateTime;
-            existingHistory.PlayResult = request.Result;
+            existingHistory.PlayResult = normalizedResult;
             existingHistory.Notes = string.IsNullOrWhiteSpace(existingHistory.Notes)
                 ? request.Notes
-                : $"{existingHistory.Notes}; Result={request.Result}; ReportNotes={request.Notes}";
+                : $"{existingHistory.Notes}; Result={normalizedResult}; ReportNotes={request.Notes}";
         }
         else
         {
             // Kiểm tra xem phiên phát sóng này đã được báo cáo hoàn tất trước đó hay chưa (idempotent Report)
             var alreadyCompleted = await _context.DevicePlayHistories
                 .AnyAsync(h => h.DeviceId == deviceId && h.BroadcastId == request.BroadcastId &&
-                               (h.PlayResult == "Hoàn thành" || h.PlayResult == "Thất bại"));
+                               (h.PlayResult == "Hoàn thành" || h.PlayResult == "Thành công" || h.PlayResult == "Thất bại"));
 
             if (alreadyCompleted)
             {

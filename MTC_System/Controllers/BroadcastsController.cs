@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using MTC_System.DTOs;
+using MTC_System.Common;
 using MTC_System.Services;
 
 namespace MTC_System.Controllers
@@ -47,6 +48,32 @@ namespace MTC_System.Controllers
             var res = await _broadcastService.GetByIdAsync(id, requestingFacilityId);
             if (!res.Success) return NotFound(res);
             return Ok(res);
+        }
+
+        /// <summary>
+        /// USR-BRD-Content: Lấy nội dung đa phương tiện hoặc cấu hình phát sóng của bản tin
+        /// </summary>
+        [HttpGet("{id:guid}/content")]
+        public async Task<IActionResult> GetContent(Guid id, [FromQuery] Guid? requestingFacilityId = null)
+        {
+            var res = await _broadcastService.GetByIdAsync(id, requestingFacilityId);
+            if (!res.Success || res.Data == null) return NotFound(res);
+
+            var broadcast = res.Data;
+            if (broadcast.MediaId.HasValue)
+            {
+                return Redirect($"/api/media/{broadcast.MediaId.Value}/stream");
+            }
+
+            return Ok(ApiResponse<object>.Ok(new
+            {
+                broadcastId = broadcast.Id,
+                broadcastName = broadcast.BroadcastName,
+                broadcastCode = broadcast.BroadcastCode,
+                mediaId = broadcast.MediaId,
+                playlistId = broadcast.PlaylistId,
+                status = broadcast.Status
+            }, "Nội dung phát sóng của bản tin."));
         }
 
         /// <summary>

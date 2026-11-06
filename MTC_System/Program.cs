@@ -269,19 +269,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Cấu hình Static Files và ánh xạ thư mục lưu trữ media
+// Cấu hình Static Files cho web wwwroot (không public thư mục /storage để bảo vệ media theo tổ chức)
 app.UseStaticFiles();
 var storagePath = Path.Combine(app.Environment.ContentRootPath, app.Configuration["MediaUpload:StorageRoot"] ?? "storage");
 if (!Directory.Exists(storagePath))
 {
     Directory.CreateDirectory(storagePath);
 }
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(storagePath),
-    RequestPath = "/storage",
-    ServeUnknownFileTypes = true
-});
 
 // BẮT BUỘC: UseAuthentication phải đứng TRƯỚC UseAuthorization
 app.UseAuthentication();
