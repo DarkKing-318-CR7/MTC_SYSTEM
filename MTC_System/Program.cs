@@ -78,6 +78,8 @@ builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IFacilityService, FacilityService>();
 builder.Services.AddScoped<IPackageService, PackageService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<UpgradePackageService>();
+builder.Services.AddScoped<PackageChangeService>();
 
 // [Dev 2]
 builder.Services.AddScoped<IChunkedMediaUploadSvc, ChunkedMediaUploadSvc>();

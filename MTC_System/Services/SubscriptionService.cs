@@ -100,8 +100,8 @@ namespace MTC_System.Services
 
             if (dto.PackageId.HasValue)
             {
-                var packageExists = await _context.Packages
-                    .AnyAsync(p => p.Id == dto.PackageId.Value && !p.IsDeleted);
+                var packageExists = await _context.Packages.AnyAsync(p => p.Id == dto.PackageId.Value &&
+                    !p.IsDeleted && !p.IsCustom && p.IsActive && dto.StartDate >= p.RegistrationStartsAt && dto.StartDate <= p.RegistrationEndsAt);
 
                 if (!packageExists)
                 {
@@ -113,6 +113,16 @@ namespace MTC_System.Services
             {
                 return ApiResponse<SubscriptionResponseDto>.Fail(
                     "Vui lòng nhập tên gói khi sử dụng gói tùy chỉnh");
+            }
+            else if (!dto.CustomStorageGB.HasValue || dto.CustomStorageGB <= 0 || !dto.CustomDurationMonths.HasValue ||
+                     !dto.CustomPrice.HasValue || dto.CustomPrice < 0)
+            {
+                return ApiResponse<SubscriptionResponseDto>.Fail("Gói khác cần dung lượng, thời hạn và giá hợp lệ");
+            }
+            else if (await _context.Packages.AnyAsync(p => !p.IsDeleted && !p.IsCustom &&
+                         p.MaxStorageGB == dto.CustomStorageGB && p.DurationMonths == dto.CustomDurationMonths))
+            {
+                return ApiResponse<SubscriptionResponseDto>.Fail("Dung lượng và thời hạn này đã có gói sẵn. Hãy chọn gói có sẵn");
             }
 
             var subscription = new Subscription
@@ -150,6 +160,9 @@ namespace MTC_System.Services
                     "Không tìm thấy đăng ký");
             }
 
+            if (await _context.SubscriptionChanges.AnyAsync(x => x.SubscriptionId == id && x.Status == "Đã đặt" && !x.IsDeleted))
+                return ApiResponse<SubscriptionResponseDto>.Fail("Thuê bao có lịch đổi gói đã đặt; hãy hủy lịch trước khi sửa");
+
             if (dto.EndDate <= dto.StartDate)
             {
                 return ApiResponse<SubscriptionResponseDto>.Fail(
@@ -158,8 +171,8 @@ namespace MTC_System.Services
 
             if (dto.PackageId.HasValue)
             {
-                var packageExists = await _context.Packages
-                    .AnyAsync(p => p.Id == dto.PackageId.Value && !p.IsDeleted);
+                var packageExists = await _context.Packages.AnyAsync(p => p.Id == dto.PackageId.Value &&
+                    !p.IsDeleted && !p.IsCustom && p.IsActive && dto.StartDate >= p.RegistrationStartsAt && dto.StartDate <= p.RegistrationEndsAt);
 
                 if (!packageExists)
                 {
@@ -171,6 +184,16 @@ namespace MTC_System.Services
             {
                 return ApiResponse<SubscriptionResponseDto>.Fail(
                     "Vui lòng nhập tên gói khi sử dụng gói tùy chỉnh");
+            }
+            else if (!dto.CustomStorageGB.HasValue || dto.CustomStorageGB <= 0 || !dto.CustomDurationMonths.HasValue ||
+                     !dto.CustomPrice.HasValue || dto.CustomPrice < 0)
+            {
+                return ApiResponse<SubscriptionResponseDto>.Fail("Gói khác cần dung lượng, thời hạn và giá hợp lệ");
+            }
+            else if (await _context.Packages.AnyAsync(p => !p.IsDeleted && !p.IsCustom &&
+                         p.MaxStorageGB == dto.CustomStorageGB && p.DurationMonths == dto.CustomDurationMonths))
+            {
+                return ApiResponse<SubscriptionResponseDto>.Fail("Dung lượng và thời hạn này đã có gói sẵn. Hãy chọn gói có sẵn");
             }
 
             subscription.PackageId = dto.PackageId;

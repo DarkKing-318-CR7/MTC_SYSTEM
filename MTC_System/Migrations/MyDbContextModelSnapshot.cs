@@ -1439,6 +1439,12 @@ namespace MTC_System.Migrations
                     b.Property<int>("DurationMonths")
                         .HasColumnType("integer");
 
+                    b.Property<DateTimeOffset>("RegistrationEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("RegistrationStartsAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -1479,6 +1485,12 @@ namespace MTC_System.Migrations
                     b.HasIndex("PackageCode")
                         .IsUnique();
 
+                    b.HasIndex("MaxStorageGB")
+                        .IsUnique()
+                        .HasFilter("\"IsCustom\" = false AND \"IsDeleted\" = false");
+
+                    b.HasIndex("DurationMonths", "RegistrationStartsAt", "RegistrationEndsAt");
+
                     b.ToTable("Packages");
 
                     b.HasData(
@@ -1495,7 +1507,9 @@ namespace MTC_System.Migrations
                             MaxStorageGB = 50,
                             PackageCode = "PKG-BASIC",
                             PackageName = "Gói Cơ Bản (Khởi nghiệp)",
-                            PricePerMonth = 500000m
+                            PricePerMonth = 500000m,
+                            RegistrationStartsAt = new DateTimeOffset(new DateTime(2026, 10, 22, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.Zero),
+                            RegistrationEndsAt = new DateTimeOffset(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.FromHours(7))
                         },
                         new
                         {
@@ -1510,7 +1524,9 @@ namespace MTC_System.Migrations
                             MaxStorageGB = 200,
                             PackageCode = "PKG-STANDARD",
                             PackageName = "Gói Tiêu Chuẩn (Doanh nghiệp)",
-                            PricePerMonth = 1500000m
+                            PricePerMonth = 1500000m,
+                            RegistrationStartsAt = new DateTimeOffset(new DateTime(2026, 10, 22, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.Zero),
+                            RegistrationEndsAt = new DateTimeOffset(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.FromHours(7))
                         },
                         new
                         {
@@ -1525,7 +1541,9 @@ namespace MTC_System.Migrations
                             MaxStorageGB = 1000,
                             PackageCode = "PKG-ENTERPRISE",
                             PackageName = "Gói Cao Cấp (Tập đoàn)",
-                            PricePerMonth = 5000000m
+                            PricePerMonth = 5000000m,
+                            RegistrationStartsAt = new DateTimeOffset(new DateTime(2026, 10, 22, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.Zero),
+                            RegistrationEndsAt = new DateTimeOffset(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.FromHours(7))
                         });
                 });
 
@@ -1906,6 +1924,36 @@ namespace MTC_System.Migrations
                     b.ToTable("SharedMedia");
                 });
 
+            modelBuilder.Entity("MTC_System.Models.SubscriptionChange", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<decimal>("Amount").HasPrecision(18, 2).HasColumnType("numeric(18,2)");
+                    b.Property<decimal>("AmountDue").HasPrecision(18, 2).HasColumnType("numeric(18,2)");
+                    b.Property<int>("BonusDays").HasColumnType("integer");
+                    b.Property<string>("ChangeType").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<Guid?>("CreatedBy").HasColumnType("uuid");
+                    b.Property<int?>("CustomDurationMonths").HasColumnType("integer");
+                    b.Property<int?>("CustomMaxDevices").HasColumnType("integer");
+                    b.Property<string>("CustomPackageName").HasMaxLength(255).HasColumnType("character varying(255)");
+                    b.Property<decimal?>("CustomPrice").HasPrecision(18, 2).HasColumnType("numeric(18,2)");
+                    b.Property<int?>("CustomStorageGB").HasColumnType("integer");
+                    b.Property<decimal>("Discount").HasPrecision(18, 2).HasColumnType("numeric(18,2)");
+                    b.Property<DateTimeOffset>("EffectiveAt").HasColumnType("timestamp with time zone");
+                    b.Property<bool>("IsDeleted").HasColumnType("boolean");
+                    b.Property<Guid?>("NewPackageId").HasColumnType("uuid");
+                    b.Property<Guid>("OrganizationId").HasColumnType("uuid");
+                    b.Property<Guid>("SubscriptionId").HasColumnType("uuid");
+                    b.Property<string>("Status").IsRequired().HasMaxLength(30).HasColumnType("character varying(30)");
+                    b.Property<DateTimeOffset?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<Guid?>("UpdatedBy").HasColumnType("uuid");
+                    b.HasKey("Id");
+                    b.HasIndex("OrganizationId");
+                    b.HasIndex("NewPackageId");
+                    b.HasIndex("SubscriptionId").IsUnique().HasFilter("\"Status\" = 'Đã đặt' AND \"IsDeleted\" = false");
+                    b.ToTable("SubscriptionChanges");
+                });
+
             modelBuilder.Entity("MTC_System.Models.Subscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1915,6 +1963,11 @@ namespace MTC_System.Migrations
                     b.Property<decimal>("ActualPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("AutoRenew")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2261,6 +2314,9 @@ namespace MTC_System.Migrations
                     b.Property<int>("AdditionalStorageGB")
                         .HasColumnType("integer");
 
+                    b.Property<int>("DurationMonths")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2277,12 +2333,22 @@ namespace MTC_System.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<Guid>("PackageId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTimeOffset>("SalesEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("SalesStartsAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2299,7 +2365,29 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("PackageId");
 
+                    b.HasIndex("IsActive", "SalesStartsAt", "SalesEndsAt");
+
                     b.ToTable("UpgradePackages");
+                });
+
+            modelBuilder.Entity("MTC_System.Models.UpgradePurchase", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<Guid?>("CreatedBy").HasColumnType("uuid");
+                    b.Property<bool>("IsDeleted").HasColumnType("boolean");
+                    b.Property<Guid>("OrganizationId").HasColumnType("uuid");
+                    b.Property<DateTimeOffset>("PurchasedAt").HasColumnType("timestamp with time zone");
+                    b.Property<int>("Quantity").HasColumnType("integer");
+                    b.Property<Guid?>("SubscriptionId").HasColumnType("uuid");
+                    b.Property<Guid>("UpgradePackageId").HasColumnType("uuid");
+                    b.Property<DateTimeOffset?>("UpdatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<Guid?>("UpdatedBy").HasColumnType("uuid");
+                    b.HasKey("Id");
+                    b.HasIndex("OrganizationId");
+                    b.HasIndex("SubscriptionId");
+                    b.HasIndex("UpgradePackageId", "OrganizationId");
+                    b.ToTable("UpgradePurchases");
                 });
 
             modelBuilder.Entity("MTC_System.Models.User", b =>
@@ -2445,6 +2533,13 @@ namespace MTC_System.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MTC_System.Models.SubscriptionChange", b =>
+                {
+                    b.HasOne("MTC_System.Models.Organization", null).WithMany().HasForeignKey("OrganizationId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                    b.HasOne("MTC_System.Models.Package", null).WithMany().HasForeignKey("NewPackageId").OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("MTC_System.Models.Subscription", null).WithMany().HasForeignKey("SubscriptionId").OnDelete(DeleteBehavior.Restrict).IsRequired();
                 });
 
             modelBuilder.Entity("MTC_System.Models.Broadcast", b =>
@@ -2831,6 +2926,13 @@ namespace MTC_System.Migrations
                         .HasForeignKey("PackageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MTC_System.Models.UpgradePurchase", b =>
+                {
+                    b.HasOne("MTC_System.Models.Organization", null).WithMany().HasForeignKey("OrganizationId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                    b.HasOne("MTC_System.Models.Subscription", null).WithMany().HasForeignKey("SubscriptionId").OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("MTC_System.Models.UpgradePackage", null).WithMany().HasForeignKey("UpgradePackageId").OnDelete(DeleteBehavior.Restrict).IsRequired();
                 });
 
             modelBuilder.Entity("MTC_System.Models.User", b =>
