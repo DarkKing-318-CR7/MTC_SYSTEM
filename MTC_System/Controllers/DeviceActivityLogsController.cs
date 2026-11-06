@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MTC_System.Common;
 using MTC_System.DTOs.DeviceActivityLogs;
@@ -7,6 +8,7 @@ namespace MTC_System.Controllers;
 
 [ApiController]
 [Route("api/device-activity-logs")]
+[Authorize(Policy = "DeviceView")]
 public sealed class DeviceActivityLogsController : ControllerBase
 {
     private readonly IDeviceActivityLogService _service;
@@ -20,18 +22,21 @@ public sealed class DeviceActivityLogsController : ControllerBase
         [FromQuery] string? result,
         CancellationToken cancellationToken)
     {
-        var data = await _service.GetAllAsync(deviceId, actionType, result, cancellationToken);
+        var scope = User.GetUserScope();
+        var data = await _service.GetAllAsync(scope, deviceId, actionType, result, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<DeviceActivityLogResponse>>.Ok(data));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<DeviceActivityLogResponse>>> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var data = await _service.GetByIdAsync(id, cancellationToken);
+        var scope = User.GetUserScope();
+        var data = await _service.GetByIdAsync(id, scope, cancellationToken);
         return Ok(ApiResponse<DeviceActivityLogResponse>.Ok(data));
     }
 
     [HttpPost]
+    [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DeviceActivityLogResponse>>> Create(
         [FromBody] CreateDeviceActivityLogRequest request,
         CancellationToken cancellationToken)
@@ -41,6 +46,7 @@ public sealed class DeviceActivityLogsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DeviceActivityLogResponse>>> Update(
         Guid id,
         [FromBody] UpdateDeviceActivityLogRequest request,
@@ -51,6 +57,7 @@ public sealed class DeviceActivityLogsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id, CancellationToken cancellationToken)
     {
         await _service.DeleteAsync(id, cancellationToken);

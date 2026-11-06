@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MTC_System.Models;
@@ -23,6 +23,7 @@ namespace MTC_System.Data.Configurations
             builder.HasIndex(p => new { p.DurationMonths, p.RegistrationStartsAt, p.RegistrationEndsAt });
 
             // SEED: 3 gói cước bán sẵn mặc định
+            
             builder.HasData(
                 new Package
                 {
@@ -38,7 +39,7 @@ namespace MTC_System.Data.Configurations
                     RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2859), TimeSpan.Zero)
                 },
                 new Package
                 {
@@ -54,7 +55,7 @@ namespace MTC_System.Data.Configurations
                     RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2863), TimeSpan.Zero)
                 },
                 new Package
                 {
@@ -70,7 +71,7 @@ namespace MTC_System.Data.Configurations
                     RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2867), TimeSpan.Zero)
                 }
             );
         }

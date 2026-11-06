@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MTC_System.Models;
@@ -30,6 +30,7 @@ namespace MTC_System.Data.Configurations
                    .IsRequired(false);
 
             // SEED: Nhà phân phối mặc định toàn hệ thống Alta Media
+            var seedCreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 752, DateTimeKind.Unspecified).AddTicks(4531), TimeSpan.Zero);
             builder.HasData(
                 new DeviceVendor
                 {
@@ -40,7 +41,7 @@ namespace MTC_System.Data.Configurations
                     Website = "https://altamedia.vn",
                     Address = "86/33 Âu Cơ, Phường 9, Quận Tân Bình, TP. Hồ Chí Minh",
                     IsDefault = true,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = seedCreatedAt
                 }
             );
         }

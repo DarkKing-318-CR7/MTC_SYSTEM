@@ -13,12 +13,18 @@ public sealed class DeviceHub : Hub
 {
     private readonly MyDbContext _context;
     private readonly IDeviceConnectionManager _connectionManager;
+    private readonly IDeviceCommandManager _commandManager;
     private readonly ILogger<DeviceHub> _logger;
 
-    public DeviceHub(MyDbContext context, IDeviceConnectionManager connectionManager, ILogger<DeviceHub> logger)
+    public DeviceHub(
+        MyDbContext context,
+        IDeviceConnectionManager connectionManager,
+        IDeviceCommandManager commandManager,
+        ILogger<DeviceHub> logger)
     {
         _context = context;
         _connectionManager = connectionManager;
+        _commandManager = commandManager;
         _logger = logger;
     }
 
@@ -64,31 +70,26 @@ public sealed class DeviceHub : Hub
         var deviceId = GetDeviceId();
         _connectionManager.UnregisterConnection(Context.ConnectionId);
 
+        // Fail-safe offline grace: Do NOT immediately flip status to "Mất kết nối" to allow short reconnects.
+        // DeviceHeartbeatMonitorHostedService will mark offline if last heartbeat > 90 seconds.
         if (deviceId != Guid.Empty)
         {
             try
             {
-                var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == deviceId && !x.IsDeleted);
-                if (device is not null)
+                _context.DeviceActivityLogs.Add(new DeviceActivityLog
                 {
-                    device.ConnectionStatus = "Mất kết nối";
-                    device.UpdatedAt = DateTimeOffset.UtcNow;
+                    DeviceId = deviceId,
+                    ActionType = "DeviceTransportDisconnected",
+                    Result = "Đang chờ grace period (90s)",
+                    IpAddress = Context.GetHttpContext()?.Connection.RemoteIpAddress?.ToString(),
+                    ActionDetail = exception?.Message
+                });
 
-                    _context.DeviceActivityLogs.Add(new DeviceActivityLog
-                    {
-                        DeviceId = deviceId,
-                        ActionType = "DeviceDisconnected",
-                        Result = "Thành công",
-                        IpAddress = Context.GetHttpContext()?.Connection.RemoteIpAddress?.ToString(),
-                        ActionDetail = exception?.Message
-                    });
-
-                    await _context.SaveChangesAsync();
-                }
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating device disconnection status for {DeviceId}", deviceId);
+                _logger.LogError(ex, "Error logging transport disconnection for {DeviceId}", deviceId);
             }
         }
 
@@ -125,6 +126,30 @@ public sealed class DeviceHub : Hub
     {
         var deviceId = GetDeviceId();
         if (deviceId == Guid.Empty) return false;
+
+        var ackResult = _commandManager.ProcessAck(request.CommandId, deviceId, request.Status, request.ErrorMessage);
+
+        if (ackResult == CommandAckResult.MismatchDevice)
+        {
+            _logger.LogWarning("Device {DeviceId} attempted to ACK command {CommandId} belonging to another device.", deviceId, request.CommandId);
+            return false;
+        }
+
+        if (ackResult == CommandAckResult.Duplicate)
+        {
+            _logger.LogInformation("Duplicate ACK for command {CommandId} from device {DeviceId} ignored idempotently.", request.CommandId, deviceId);
+            return true;
+        }
+
+        var cmdState = _commandManager.GetCommand(request.CommandId);
+        if (cmdState != null && cmdState.CommandType == "SetVolume" && request.Status.Equals("Success", StringComparison.OrdinalIgnoreCase))
+        {
+            var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == deviceId && !x.IsDeleted);
+            if (device != null)
+            {
+                device.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+        }
 
         _context.DeviceActivityLogs.Add(new DeviceActivityLog
         {

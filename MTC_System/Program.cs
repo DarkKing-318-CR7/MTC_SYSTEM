@@ -123,7 +123,35 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("DeviceView", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+    });
+
+    options.AddPolicy("DeviceManage", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("ADMINISTRATOR", "Administrator", "IT");
+    });
+
+    options.AddPolicy("DeviceControl", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("ADMINISTRATOR", "Administrator", "IT");
+    });
+
+    options.AddPolicy("DeviceAdminOnly", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("ADMINISTRATOR", "Administrator");
+    });
+});
 
 // 4. Đăng ký Services (Dependency Injection)
 // [Dev 1]
@@ -158,6 +186,13 @@ builder.Services.AddScoped<IDeviceActivationService, DeviceActivationService>();
 // SignalR & Realtime Connection Manager
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<MTC_System.Realtime.IDeviceConnectionManager, MTC_System.Realtime.DeviceConnectionManager>();
+builder.Services.AddSingleton<MTC_System.Realtime.IDeviceCommandManager, MTC_System.Realtime.DeviceCommandManager>();
+builder.Services.AddScoped<MTC_System.Realtime.IBroadcastRealtimeDispatcher, MTC_System.Realtime.BroadcastRealtimeDispatcher>();
+
+// Background Hosted Services (Heartbeat Timeout Monitor & Broadcast Scheduler)
+builder.Services.AddSingleton<MTC_System.Realtime.DeviceHeartbeatMonitorHostedService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MTC_System.Realtime.DeviceHeartbeatMonitorHostedService>());
+builder.Services.AddHostedService<MTC_System.Realtime.BroadcastSchedulerHostedService>();
 
 // 5. Swagger UI với nút ổ khóa nhập Bearer Token
 builder.Services.AddEndpointsApiExplorer();

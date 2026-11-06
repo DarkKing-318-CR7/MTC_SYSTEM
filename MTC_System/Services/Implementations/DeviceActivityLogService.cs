@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MTC_System.Common;
 using MTC_System.Data;
 using MTC_System.DTOs.DeviceActivityLogs;
 using MTC_System.Models;
@@ -13,27 +14,75 @@ public sealed class DeviceActivityLogService : IDeviceActivityLogService
     public DeviceActivityLogService(MyDbContext context) => _context = context;
 
     public async Task<IReadOnlyList<DeviceActivityLogResponse>> GetAllAsync(
+        UserScopeContext context,
         Guid? deviceId,
         string? actionType,
         string? result,
         CancellationToken cancellationToken)
     {
-        var logs = _context.DeviceActivityLogs.AsNoTracking().Where(x => !x.IsDeleted);
-        if (deviceId.HasValue)
-            logs = logs.Where(x => x.DeviceId == deviceId.Value);
-        if (!string.IsNullOrWhiteSpace(actionType))
-            logs = logs.Where(x => x.ActionType == actionType.Trim());
-        if (!string.IsNullOrWhiteSpace(result))
-            logs = logs.Where(x => x.Result == result.Trim());
+        context.EnsureCanAccess();
 
-        return await Project(logs).OrderByDescending(x => x.CreatedAt).ToListAsync(cancellationToken);
+        var query = from log in _context.DeviceActivityLogs.AsNoTracking().Where(x => !x.IsDeleted)
+                    join dev in _context.Devices.AsNoTracking().Where(x => !x.IsDeleted) on log.DeviceId equals dev.Id
+                    select new { log, dev };
+
+        if (!context.IsSystemAdministrator)
+        {
+            query = query.Where(x => x.dev.OrganizationId == context.OrganizationId!.Value);
+            if (context.FacilityId.HasValue)
+                query = query.Where(x => x.dev.FacilityId == context.FacilityId.Value);
+        }
+
+        if (deviceId.HasValue)
+            query = query.Where(x => x.log.DeviceId == deviceId.Value);
+        if (!string.IsNullOrWhiteSpace(actionType))
+            query = query.Where(x => x.log.ActionType == actionType.Trim());
+        if (!string.IsNullOrWhiteSpace(result))
+            query = query.Where(x => x.log.Result == result.Trim());
+
+        return await query
+            .OrderByDescending(x => x.log.CreatedAt)
+            .Select(x => new DeviceActivityLogResponse
+            {
+                Id = x.log.Id,
+                DeviceId = x.log.DeviceId,
+                UserId = x.log.UserId,
+                ActionType = x.log.ActionType,
+                ActionDetail = x.log.ActionDetail,
+                ErrorCodeRef = x.log.ErrorCodeRef,
+                IpAddress = x.log.IpAddress,
+                Result = x.log.Result,
+                ErrorMessage = x.log.ErrorMessage,
+                CreatedAt = x.log.CreatedAt,
+                UpdatedAt = x.log.UpdatedAt
+            })
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<DeviceActivityLogResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<DeviceActivityLogResponse> GetByIdAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken)
     {
-        var result = await Project(_context.DeviceActivityLogs.AsNoTracking().Where(x => x.Id == id && !x.IsDeleted))
-            .FirstOrDefaultAsync(cancellationToken);
-        return result ?? throw DeviceModuleException.NotFound("Không tìm thấy nhật ký hoạt động thiết bị.");
+        var item = await (from log in _context.DeviceActivityLogs.AsNoTracking().Where(x => x.Id == id && !x.IsDeleted)
+                          join dev in _context.Devices.AsNoTracking().Where(x => !x.IsDeleted) on log.DeviceId equals dev.Id
+                          select new { log, dev })
+                          .FirstOrDefaultAsync(cancellationToken)
+                          ?? throw DeviceModuleException.NotFound("Không tìm thấy nhật ký hoạt động thiết bị.");
+
+        context.ValidateScope(item.dev.OrganizationId, item.dev.FacilityId);
+
+        return new DeviceActivityLogResponse
+        {
+            Id = item.log.Id,
+            DeviceId = item.log.DeviceId,
+            UserId = item.log.UserId,
+            ActionType = item.log.ActionType,
+            ActionDetail = item.log.ActionDetail,
+            ErrorCodeRef = item.log.ErrorCodeRef,
+            IpAddress = item.log.IpAddress,
+            Result = item.log.Result,
+            ErrorMessage = item.log.ErrorMessage,
+            CreatedAt = item.log.CreatedAt,
+            UpdatedAt = item.log.UpdatedAt
+        };
     }
 
     public async Task<DeviceActivityLogResponse> CreateAsync(CreateDeviceActivityLogRequest request, CancellationToken cancellationToken)
@@ -54,7 +103,7 @@ public sealed class DeviceActivityLogService : IDeviceActivityLogService
 
         _context.DeviceActivityLogs.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(entity.Id, cancellationToken);
+        return ProjectSingle(entity);
     }
 
     public async Task<DeviceActivityLogResponse> UpdateAsync(Guid id, UpdateDeviceActivityLogRequest request, CancellationToken cancellationToken)
@@ -74,7 +123,7 @@ public sealed class DeviceActivityLogService : IDeviceActivityLogService
         entity.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(id, cancellationToken);
+        return ProjectSingle(entity);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -103,35 +152,31 @@ public sealed class DeviceActivityLogService : IDeviceActivityLogService
 
         if (!string.IsNullOrWhiteSpace(errorCode))
         {
-            var normalized = errorCode.Trim().ToUpperInvariant();
-            var errorExists = await _context.DeviceErrorCodes.AnyAsync(
-                x => x.ErrorCode == normalized && !x.IsDeleted,
-                cancellationToken);
-            if (!errorExists)
-                throw DeviceModuleException.BadRequest("ErrorCodeRef không tồn tại.");
+            var code = errorCode.Trim().ToUpperInvariant();
+            var codeExists = await _context.DeviceErrorCodes.AnyAsync(x => x.ErrorCode == code && !x.IsDeleted, cancellationToken);
+            if (!codeExists)
+                throw DeviceModuleException.BadRequest("Mã lỗi không tồn tại trong danh mục.");
         }
     }
 
-    private static string? NormalizeErrorCode(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
-    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? NormalizeErrorCode(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 
-    private IQueryable<DeviceActivityLogResponse> Project(IQueryable<DeviceActivityLog> logs) =>
-        from log in logs
-        join device in _context.Devices.AsNoTracking() on log.DeviceId equals device.Id
-        select new DeviceActivityLogResponse
-        {
-            Id = log.Id,
-            DeviceId = log.DeviceId,
-            DeviceCode = device.DeviceCode,
-            DeviceName = device.DeviceName,
-            UserId = log.UserId,
-            ActionType = log.ActionType,
-            ActionDetail = log.ActionDetail,
-            ErrorCodeRef = log.ErrorCodeRef,
-            IpAddress = log.IpAddress,
-            Result = log.Result,
-            ErrorMessage = log.ErrorMessage,
-            CreatedAt = log.CreatedAt,
-            UpdatedAt = log.UpdatedAt
-        };
+    private static string? Clean(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static DeviceActivityLogResponse ProjectSingle(DeviceActivityLog x) => new()
+    {
+        Id = x.Id,
+        DeviceId = x.DeviceId,
+        UserId = x.UserId,
+        ActionType = x.ActionType,
+        ActionDetail = x.ActionDetail,
+        ErrorCodeRef = x.ErrorCodeRef,
+        IpAddress = x.IpAddress,
+        Result = x.Result,
+        ErrorMessage = x.ErrorMessage,
+        CreatedAt = x.CreatedAt,
+        UpdatedAt = x.UpdatedAt
+    };
 }

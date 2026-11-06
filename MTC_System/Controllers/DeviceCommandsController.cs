@@ -12,22 +12,25 @@ using MTC_System.Realtime;
 namespace MTC_System.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "DeviceControl")]
 [Route("api/devices")]
 public sealed class DeviceCommandsController : ControllerBase
 {
     private readonly MyDbContext _context;
     private readonly IHubContext<DeviceHub> _hubContext;
     private readonly IDeviceConnectionManager _connectionManager;
+    private readonly IDeviceCommandManager _commandManager;
 
     public DeviceCommandsController(
         MyDbContext context,
         IHubContext<DeviceHub> hubContext,
-        IDeviceConnectionManager connectionManager)
+        IDeviceConnectionManager connectionManager,
+        IDeviceCommandManager commandManager)
     {
         _context = context;
         _hubContext = hubContext;
         _connectionManager = connectionManager;
+        _commandManager = commandManager;
     }
 
     [HttpPost("{id:guid}/commands/volume")]
@@ -43,10 +46,12 @@ public sealed class DeviceCommandsController : ControllerBase
         if (device is null)
             return NotFound(ApiResponse<object>.Fail("Không tìm thấy thiết bị."));
 
-        if (!EnsureUserScope(device))
-            return Forbid();
+        var scope = User.GetUserScope();
+        scope.ValidateScope(device.OrganizationId, device.FacilityId);
 
         var commandId = Guid.NewGuid();
+        _commandManager.RegisterCommand(commandId, device.Id, "SetVolume", "Pending");
+
         var envelope = new DeviceCommandEnvelope
         {
             CommandId = commandId,
@@ -59,6 +64,7 @@ public sealed class DeviceCommandsController : ControllerBase
         if (_connectionManager.TryGetConnectionId(device.Id, out var connectionId) && !string.IsNullOrEmpty(connectionId))
         {
             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveCommand", envelope, cancellationToken);
+            _commandManager.MarkSent(commandId);
             sent = true;
         }
 
@@ -68,7 +74,7 @@ public sealed class DeviceCommandsController : ControllerBase
         _context.DeviceActivityLogs.Add(new DeviceActivityLog
         {
             DeviceId = device.Id,
-            UserId = GetUserId(),
+            UserId = scope.UserId,
             ActionType = "SetVolume",
             Result = sent ? "Đã gửi" : "Thiết bị offline",
             ActionDetail = $"{{\"volume\":{request.Volume},\"commandId\":\"{commandId}\",\"sentRealtime\":{sent.ToString().ToLower()}}}"
@@ -87,10 +93,12 @@ public sealed class DeviceCommandsController : ControllerBase
         if (device is null)
             return NotFound(ApiResponse<object>.Fail("Không tìm thấy thiết bị."));
 
-        if (!EnsureUserScope(device))
-            return Forbid();
+        var scope = User.GetUserScope();
+        scope.ValidateScope(device.OrganizationId, device.FacilityId);
 
         var commandId = Guid.NewGuid();
+        _commandManager.RegisterCommand(commandId, device.Id, "Reboot", "Pending");
+
         var envelope = new DeviceCommandEnvelope
         {
             CommandId = commandId,
@@ -103,13 +111,14 @@ public sealed class DeviceCommandsController : ControllerBase
         if (_connectionManager.TryGetConnectionId(device.Id, out var connectionId) && !string.IsNullOrEmpty(connectionId))
         {
             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveCommand", envelope, cancellationToken);
+            _commandManager.MarkSent(commandId);
             sent = true;
         }
 
         _context.DeviceActivityLogs.Add(new DeviceActivityLog
         {
             DeviceId = device.Id,
-            UserId = GetUserId(),
+            UserId = scope.UserId,
             ActionType = "Reboot",
             Result = sent ? "Đã gửi" : "Thiết bị offline",
             ActionDetail = $"{{\"commandId\":\"{commandId}\",\"sentRealtime\":{sent.ToString().ToLower()}}}"
@@ -118,25 +127,6 @@ public sealed class DeviceCommandsController : ControllerBase
         await _context.SaveChangesAsync(cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { commandId, sentRealtime = sent }, "Lệnh khởi động lại đã được tạo."));
     }
-
-    private bool EnsureUserScope(Device device)
-    {
-        if (User.IsInRole("ADMINISTRATOR") || User.IsInRole("Administrator"))
-            return true;
-
-        var orgClaim = User.FindFirstValue("organizationId");
-        if (Guid.TryParse(orgClaim, out var userOrgId) && userOrgId != device.OrganizationId)
-            return false;
-
-        var facilityClaim = User.FindFirstValue("facilityId");
-        if (Guid.TryParse(facilityClaim, out var userFacilityId) && userFacilityId != device.FacilityId)
-            return false;
-
-        return true;
-    }
-
-    private Guid? GetUserId() =>
-        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 }
 
 public sealed class SetVolumeCommandRequest
