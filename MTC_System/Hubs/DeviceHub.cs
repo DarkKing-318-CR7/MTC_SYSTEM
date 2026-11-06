@@ -211,15 +211,18 @@ public sealed class DeviceHub : Hub
         }
         else
         {
-            _context.DevicePlayHistories.Add(new DevicePlayHistory
+            // Kiểm tra xem phiên phát sóng này đã được báo cáo hoàn tất trước đó hay chưa (idempotent Report)
+            var alreadyCompleted = await _context.DevicePlayHistories
+                .AnyAsync(h => h.DeviceId == deviceId && h.BroadcastId == request.BroadcastId &&
+                               (h.PlayResult == "Hoàn thành" || h.PlayResult == "Thất bại"));
+
+            if (alreadyCompleted)
             {
-                DeviceId = deviceId,
-                BroadcastId = request.BroadcastId,
-                StartedAt = request.StartedAt.UtcDateTime,
-                EndedAt = request.EndedAt.UtcDateTime,
-                PlayResult = request.Result,
-                Notes = request.Notes
-            });
+                return true;
+            }
+
+            // Không tìm thấy phiên phát sóng nào được dispatch tới thiết bị này -> Từ chối báo cáo giả
+            return false;
         }
 
         device.PlayStatus = "Dừng phát bản tin";

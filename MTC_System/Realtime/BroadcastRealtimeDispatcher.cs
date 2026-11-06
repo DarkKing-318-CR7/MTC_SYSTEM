@@ -61,7 +61,21 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
             return 0;
         }
 
-        var now = occurrenceTime ?? DateTimeOffset.UtcNow;
+        DateTimeOffset now;
+        if (occurrenceTime.HasValue)
+        {
+            now = occurrenceTime.Value;
+        }
+        else
+        {
+            var tzSetting = await _context.SystemSettings
+                .AsNoTracking()
+                .Where(s => s.OrganizationId == broadcast.OrganizationId && !s.IsDeleted && s.SettingKey == "TIMEZONE")
+                .Select(s => s.SettingValue)
+                .FirstOrDefaultAsync(cancellationToken);
+            var orgTz = ResolveTimeZone(tzSetting);
+            now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, orgTz);
+        }
 
         // Target devices: explicit devices in schedules, or all active devices in the broadcast facility
         var targetDeviceIds = broadcast.Schedules
@@ -87,26 +101,61 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
         }
 
         int dispatchedCount = 0;
-        var dateKey = now.UtcDateTime.ToString("yyyyMMdd");
+        // P1 Fix: Định dạng dateKey theo giờ địa phương (local offset) của occurrence, tuyệt đối không gọi UtcDateTime
+        var dateKey = now.ToString("yyyyMMdd");
         var activeScheduleId = scheduleId ?? broadcast.Schedules.FirstOrDefault()?.Id ?? Guid.Empty;
         var activeTimeSlotId = timeSlotId ?? broadcast.Schedules.SelectMany(s => s.TimeSlots).FirstOrDefault()?.Id ?? Guid.Empty;
 
-        // P1 – Trích xuất thông tin Media thật theo hợp đồng DEVICE_REALTIME_CONTRACT.md
+        // P1 Fix: Trích xuất thông tin nội dung Media / Playlist thật theo DEVICE_REALTIME_CONTRACT.md
         Media? media = null;
+        int durationSeconds = 0;
+
         if (broadcast.MediaId.HasValue)
         {
             media = await _context.Media.AsNoTracking().FirstOrDefaultAsync(m => m.Id == broadcast.MediaId.Value, cancellationToken);
+            if (media?.DurationSeconds > 0)
+                durationSeconds = media.DurationSeconds;
+        }
+        else if (broadcast.PlaylistId.HasValue)
+        {
+            var playlist = await _context.Playlists
+                .AsNoTracking()
+                .Include(p => p.Items)
+                .FirstOrDefaultAsync(p => p.Id == broadcast.PlaylistId.Value && !p.IsDeleted, cancellationToken);
+
+            if (playlist != null && playlist.Items.Count > 0)
+            {
+                var firstItem = playlist.Items.Where(i => !i.IsDeleted).OrderBy(i => i.DisplayOrder).FirstOrDefault();
+                if (firstItem != null)
+                {
+                    media = await _context.Media.AsNoTracking().FirstOrDefaultAsync(m => m.Id == firstItem.MediaId && !m.IsDeleted, cancellationToken);
+                    durationSeconds = playlist.TotalDurationSeconds > 0 ? playlist.TotalDurationSeconds : (firstItem.DurationSeconds > 0 ? firstItem.DurationSeconds : 30);
+                }
+            }
         }
 
-        string mediaUrl = !string.IsNullOrWhiteSpace(media?.Url)
-            ? media.Url
-            : (!string.IsNullOrWhiteSpace(media?.FilePath)
-                ? media.FilePath
-                : (!string.IsNullOrWhiteSpace(media?.SourceUrl)
-                    ? media.SourceUrl
-                    : $"/api/media/{broadcast.MediaId ?? broadcast.Id}/stream"));
+        string mediaUrl;
+        if (media != null)
+        {
+            if (!string.IsNullOrWhiteSpace(media.Url))
+            {
+                mediaUrl = media.Url;
+            }
+            else
+            {
+                mediaUrl = $"/api/media/{media.Id}/stream";
+            }
 
-        int durationSeconds = media?.DurationSeconds > 0 ? media.DurationSeconds : 30;
+            if (durationSeconds <= 0)
+            {
+                durationSeconds = media.DurationSeconds > 0 ? media.DurationSeconds : 30;
+            }
+        }
+        else
+        {
+            mediaUrl = $"/api/broadcasts/{broadcast.Id}/content";
+            durationSeconds = 30;
+        }
 
         foreach (var deviceId in targetDeviceIds)
         {
@@ -191,36 +240,46 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
                 }
             };
 
-            await _hubContext.Clients.Client(connectionId!).SendAsync("ReceiveCommand", envelope, cancellationToken);
-            _commandManager.MarkSent(commandId);
-            dispatchedCount++;
-
-            // Nếu trước đó đã ghi nhận "Thiết bị offline" cho occurrence này, nâng cấp bản ghi sang "Đang phát"
-            var existingOfflineHistory = await _context.DevicePlayHistories
-                .FirstOrDefaultAsync(h => h.BroadcastId == broadcast.Id &&
-                                          h.DeviceId == deviceId &&
-                                          h.PlayResult == "Thiết bị offline" &&
-                                          h.Notes != null &&
-                                          h.Notes.Contains(occurrenceKey),
-                                     cancellationToken);
-
-            if (existingOfflineHistory != null)
+            // P1 Fix: Bọc try-catch quanh SendAsync; nếu gửi thất bại thì giải phóng khóa để scheduler có thể thử lại
+            try
             {
-                existingOfflineHistory.StartedAt = now.UtcDateTime;
-                existingOfflineHistory.PlayResult = "Đang phát";
-                existingOfflineHistory.Notes = $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=SentRealtime(RecoveredOnline)";
-            }
-            else
-            {
-                _context.DevicePlayHistories.Add(new DevicePlayHistory
+                await _hubContext.Clients.Client(connectionId!).SendAsync("ReceiveCommand", envelope, cancellationToken);
+                _commandManager.MarkSent(commandId);
+                dispatchedCount++;
+
+                // Nếu trước đó đã ghi nhận "Thiết bị offline" cho occurrence này, nâng cấp bản ghi sang "Đang phát"
+                var existingOfflineHistory = await _context.DevicePlayHistories
+                    .FirstOrDefaultAsync(h => h.BroadcastId == broadcast.Id &&
+                                              h.DeviceId == deviceId &&
+                                              h.PlayResult == "Thiết bị offline" &&
+                                              h.Notes != null &&
+                                              h.Notes.Contains(occurrenceKey),
+                                         cancellationToken);
+
+                if (existingOfflineHistory != null)
                 {
-                    DeviceId = deviceId,
-                    BroadcastId = broadcast.Id,
-                    BroadcastScheduleId = activeScheduleId != Guid.Empty ? activeScheduleId : null,
-                    StartedAt = now.UtcDateTime,
-                    PlayResult = "Đang phát",
-                    Notes = $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=SentRealtime"
-                });
+                    existingOfflineHistory.StartedAt = now.UtcDateTime;
+                    existingOfflineHistory.PlayResult = "Đang phát";
+                    existingOfflineHistory.Notes = $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=SentRealtime(RecoveredOnline)";
+                }
+                else
+                {
+                    _context.DevicePlayHistories.Add(new DevicePlayHistory
+                    {
+                        DeviceId = deviceId,
+                        BroadcastId = broadcast.Id,
+                        BroadcastScheduleId = activeScheduleId != Guid.Empty ? activeScheduleId : null,
+                        StartedAt = now.UtcDateTime,
+                        PlayResult = "Đang phát",
+                        Notes = $"OccurrenceKey={occurrenceKey}; CommandId={commandId}; Status=SentRealtime"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send command to device {DeviceId} via SignalR. Releasing occurrence claim {OccurrenceKey}.", deviceId, occurrenceKey);
+                _occurrenceManager.Release(occurrenceKey);
+                _commandManager.ProcessAck(commandId, deviceId, "Failed", ex.Message);
             }
         }
 
@@ -233,5 +292,32 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
             broadcastId, dispatchedCount, targetDeviceIds.Count);
 
         return dispatchedCount;
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string? tzString)
+    {
+        if (string.IsNullOrWhiteSpace(tzString))
+            tzString = "SE Asia Standard Time";
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(tzString);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            try
+            {
+                if (tzString.Equals("SE Asia Standard Time", StringComparison.OrdinalIgnoreCase) ||
+                    tzString.Contains("07:00") || tzString.Contains("Bangkok") || tzString.Contains("Hanoi") || tzString.Contains("Vietnam"))
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+                }
+                return TimeZoneInfo.CreateCustomTimeZone("UTC+07:00", TimeSpan.FromHours(7), "SE Asia Standard Time", "SE Asia Standard Time");
+            }
+            catch
+            {
+                return TimeZoneInfo.CreateCustomTimeZone("UTC+07:00", TimeSpan.FromHours(7), "SE Asia Standard Time", "SE Asia Standard Time");
+            }
+        }
     }
 }

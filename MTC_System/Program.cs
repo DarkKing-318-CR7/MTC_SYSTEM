@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -268,6 +268,20 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Cấu hình Static Files và ánh xạ thư mục lưu trữ media
+app.UseStaticFiles();
+var storagePath = Path.Combine(app.Environment.ContentRootPath, app.Configuration["MediaUpload:StorageRoot"] ?? "storage");
+if (!Directory.Exists(storagePath))
+{
+    Directory.CreateDirectory(storagePath);
+}
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(storagePath),
+    RequestPath = "/storage",
+    ServeUnknownFileTypes = true
+});
 
 // BẮT BUỘC: UseAuthentication phải đứng TRƯỚC UseAuthorization
 app.UseAuthentication();

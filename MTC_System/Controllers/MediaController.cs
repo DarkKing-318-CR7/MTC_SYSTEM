@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MTC_System.Common;
+using MTC_System.Data;
 using MTC_System.DTOs.Media;
 using MTC_System.Services;
 using MTC_System.Services.Interfaces;
@@ -14,8 +16,72 @@ namespace MTC_System.Controllers;
 public sealed class MediaController : ControllerBase
 {
     private readonly IMediaService _service;
+    private readonly MyDbContext _context;
+    private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
 
-    public MediaController(IMediaService service) => _service = service;
+    public MediaController(
+        IMediaService service,
+        MyDbContext context,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
+    {
+        _service = service;
+        _context = context;
+        _configuration = configuration;
+        _environment = environment;
+    }
+
+    /// <summary>
+    /// Phát / tải trực tiếp luồng nội dung tệp Media (hỗ trợ HTTP Range requests cho trình phát media của thiết bị)
+    /// </summary>
+    [HttpGet("{id:guid}/stream")]
+    [AllowAnonymous]
+    public async Task<IActionResult> StreamMedia(Guid id, CancellationToken cancellationToken)
+    {
+        var media = await _context.Media.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted, cancellationToken);
+        if (media == null)
+            return NotFound(ApiResponse<string>.Fail("Không tìm thấy tệp media."));
+
+        if (!string.IsNullOrWhiteSpace(media.Url))
+        {
+            return Redirect(media.Url);
+        }
+
+        if (string.IsNullOrWhiteSpace(media.FilePath))
+        {
+            return NotFound(ApiResponse<string>.Fail("Media không có đường dẫn tệp."));
+        }
+
+        var configuredRoot = _configuration["MediaUpload:StorageRoot"] ?? "storage";
+        var storageRoot = Path.GetFullPath(Path.Combine(_environment.ContentRootPath, configuredRoot));
+        var fullPath = Path.Combine(storageRoot, media.FilePath.TrimStart('/', '\\'));
+
+        if (!System.IO.File.Exists(fullPath))
+        {
+            fullPath = Path.Combine(_environment.ContentRootPath, media.FilePath.TrimStart('/', '\\'));
+        }
+
+        if (!System.IO.File.Exists(fullPath))
+        {
+            return NotFound(ApiResponse<string>.Fail("Tệp tin media không tồn tại trên máy chủ lưu trữ."));
+        }
+
+        var extension = Path.GetExtension(media.FileName ?? media.FilePath).ToLowerInvariant();
+        var contentType = extension switch
+        {
+            ".mp3" => "audio/mpeg",
+            ".wav" => "audio/wav",
+            ".ogg" => "audio/ogg",
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            _ => "application/octet-stream"
+        };
+
+        return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
+    }
 
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<MediaResponse>>>> GetAll(CancellationToken cancellationToken)
