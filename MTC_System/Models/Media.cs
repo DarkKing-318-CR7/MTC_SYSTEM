@@ -14,8 +14,11 @@ namespace MTC_System.Models
         public string FileName { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
 
-        /// <summary>Loại media: Video, Audio, Image, Hz_FM, Stream, URL</summary>
+        /// <summary>Loại nội dung: Image, Audio, Video, LiveStream hoặc Frequency.</summary>
         public string FileType { get; set; } = string.Empty;
+
+        /// <summary>Phương thức tạo nguồn, độc lập với loại nội dung media.</summary>
+        public MediaSourceMethod SourceType { get; set; } = MediaSourceMethod.File;
 
         public long FileSize { get; set; } = 0;           // Dung lượng thực tế (bytes)
         public long SizeInBytes { get; set; } = 0;        // Phục vụ báo cáo dung lượng SYS-RPT-04
@@ -37,8 +40,9 @@ namespace MTC_System.Models
         /// <summary>true nếu media được cơ sở cha chia sẻ xuống (hiển thị icon chia sẻ ở UI)</summary>
         public bool IsSharedFromParent { get; set; } = false;
 
-        public string? Url { get; set; }                  // Dùng khi FileType = URL hoặc Stream
-        public string? FrequencyHz { get; set; }          // Dùng khi FileType = Hz_FM
+        public string? Url { get; set; }                  // External playback URL for a live stream
+        public string? SourceUrl { get; set; }             // Original URL used to download a finite media file
+        public decimal? FrequencyHz { get; set; }          // Numeric frequency metadata
 
         // Khóa ngoại sang danh mục lĩnh vực
         public Guid? CategoryId { get; set; }
