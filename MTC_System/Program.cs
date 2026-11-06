@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -89,6 +89,16 @@ builder.Services.AddAuthentication(options =>
     };
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/device"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        },
         OnTokenValidated = async context =>
         {
             var deviceIdValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -144,6 +154,10 @@ builder.Services.AddScoped<IDeviceErrorCodeService, DeviceErrorCodeService>();
 builder.Services.AddScoped<IDeviceActivityLogService, DeviceActivityLogService>();
 builder.Services.AddScoped<IDevicePlayHistoryService, DevicePlayHistoryService>();
 builder.Services.AddScoped<IDeviceActivationService, DeviceActivationService>();
+
+// SignalR & Realtime Connection Manager
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<MTC_System.Realtime.IDeviceConnectionManager, MTC_System.Realtime.DeviceConnectionManager>();
 
 // 5. Swagger UI với nút ổ khóa nhập Bearer Token
 builder.Services.AddEndpointsApiExplorer();
@@ -326,5 +340,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
+app.MapHub<MTC_System.Hubs.DeviceHub>("/hubs/device");
 
 app.Run();
+
+public partial class Program { }
