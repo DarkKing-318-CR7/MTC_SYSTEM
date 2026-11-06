@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MTC_System.DTOs;
 using MTC_System.Common;
 using MTC_System.Services;
+using MTC_System.Services.Interfaces;
 
 namespace MTC_System.Controllers
 {
@@ -79,8 +80,21 @@ namespace MTC_System.Controllers
 
                     var dbContext = HttpContext.RequestServices.GetRequiredService<MTC_System.Data.MyDbContext>();
                     var device = await dbContext.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId && !d.IsDeleted);
-                    if (device == null || device.OrganizationId != broadcast.OrganizationId)
+                    if (device == null || device.OrganizationId != broadcast.OrganizationId || !device.ActiveStatus || !device.IsActivated)
                         return Forbid();
+
+                    // Kiểm tra phân quyền thiết bị: Được phân công nhận bản tin hoặc thuộc cây cơ sở của bản tin
+                    bool isAssigned = await dbContext.BroadcastDevices.AsNoTracking().AnyAsync(bd =>
+                        bd.DeviceId == device.Id && !bd.IsDeleted &&
+                        dbContext.BroadcastSchedules.Any(s => s.Id == bd.BroadcastScheduleId && s.BroadcastId == broadcast.Id && !s.IsDeleted));
+
+                    if (!isAssigned)
+                    {
+                        var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+                        bool canAccessFacility = await mediaService.CanAccessFacilityAsync(device.OrganizationId, broadcast.FacilityId, device.FacilityId, HttpContext.RequestAborted);
+                        if (!canAccessFacility)
+                            return Forbid();
+                    }
                 }
                 else
                 {
@@ -88,6 +102,15 @@ namespace MTC_System.Controllers
                     var orgClaim = User.FindFirst("organizationId")?.Value;
                     if (!Guid.TryParse(orgClaim, out var userOrgId) || userOrgId != broadcast.OrganizationId)
                         return Forbid();
+
+                    var facClaim = User.FindFirst("facilityId")?.Value;
+                    if (!string.IsNullOrWhiteSpace(facClaim) && Guid.TryParse(facClaim, out var userFacilityId))
+                    {
+                        var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+                        bool canAccessFacility = await mediaService.CanAccessFacilityAsync(userOrgId, userFacilityId, broadcast.FacilityId, HttpContext.RequestAborted);
+                        if (!canAccessFacility)
+                            return Forbid();
+                    }
                 }
             }
 

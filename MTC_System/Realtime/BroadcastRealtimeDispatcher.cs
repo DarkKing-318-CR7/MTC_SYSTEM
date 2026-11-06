@@ -138,6 +138,7 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
 
                     playlistItemsPayload = new List<object>();
                     int calculatedTotalDuration = 0;
+                    Media? firstValidMedia = null;
 
                     foreach (var item in activeItems)
                     {
@@ -147,6 +148,11 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
                             _logger.LogWarning("PlaylistItem {ItemId} in Playlist {PlaylistId} references deleted or missing media {MediaId}. Skipping item.",
                                 item.Id, playlist.Id, item.MediaId);
                             continue;
+                        }
+
+                        if (firstValidMedia == null)
+                        {
+                            firstValidMedia = itemMedia;
                         }
 
                         var itemUrl = !string.IsNullOrWhiteSpace(itemMedia.Url)
@@ -172,9 +178,9 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
 
                     if (playlistItemsPayload.Count > 0)
                     {
-                        durationSeconds = playlist.TotalDurationSeconds > 0 ? playlist.TotalDurationSeconds : calculatedTotalDuration;
-                        var firstValidMediaId = (Guid)playlistItemsPayload[0].GetType().GetProperty("mediaId")!.GetValue(playlistItemsPayload[0])!;
-                        mediaDict.TryGetValue(firstValidMediaId, out media);
+                        durationSeconds = calculatedTotalDuration;
+                        media = firstValidMedia;
+
                     }
                     else
                     {

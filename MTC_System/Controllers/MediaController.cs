@@ -60,6 +60,30 @@ public sealed class MediaController : ControllerBase
 
             if (device.OrganizationId != media.OrganizationId)
                 return Forbid();
+
+            // Kiểm tra phân quyền truy cập Media: Phân cấp cơ sở hoặc được phân công nhận bản tin chứa media
+            bool canAccessHierarchy = await _service.CanAccessFacilityAsync(device.OrganizationId, media.FacilityId, device.FacilityId, cancellationToken);
+            if (!canAccessHierarchy)
+            {
+                // Kiểm tra xem thiết bị có được phân công bản tin nào (trực tiếp qua MediaId hoặc qua Playlist) chứa media này không
+                bool isAssigned = await _context.BroadcastDevices
+                    .AsNoTracking()
+                    .Where(bd => bd.DeviceId == device.Id && !bd.IsDeleted)
+                    .Join(_context.BroadcastSchedules.Where(s => !s.IsDeleted),
+                        bd => bd.BroadcastScheduleId,
+                        s => s.Id,
+                        (bd, s) => s.BroadcastId)
+                    .Join(_context.Broadcasts.Where(b => !b.IsDeleted),
+                        broadcastId => broadcastId,
+                        b => b.Id,
+                        (broadcastId, b) => b)
+                    .AnyAsync(b => b.MediaId == media.Id ||
+                        (_context.PlaylistItems.Any(pi => pi.PlaylistId == b.PlaylistId && pi.MediaId == media.Id && !pi.IsDeleted)),
+                        cancellationToken);
+
+                if (!isAssigned)
+                    return Forbid();
+            }
         }
         else
         {
