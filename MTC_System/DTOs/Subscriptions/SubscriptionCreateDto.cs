@@ -26,7 +26,7 @@ namespace MTC_System.DTOs.Subscriptions
         [Range(0, int.MaxValue)]
         public int? CustomMaxDevices { get; set; }
 
-        [Range(1, 120)]
+        [Range(0, 120)]
         public int? CustomDurationMonths { get; set; }
 
         [Range(0, double.MaxValue)]

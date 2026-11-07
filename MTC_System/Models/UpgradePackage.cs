@@ -13,6 +13,10 @@ namespace MTC_System.Models
         public int AdditionalDevices { get; set; } = 0;       // Số thiết bị thêm
         public int AdditionalStorageGB { get; set; } = 0;     // Dung lượng thêm (GB)
         public decimal Price { get; set; } = 0;               // Giá gói nâng cấp (VNĐ)
+        public int DurationMonths { get; set; } = 1;
+        public DateTimeOffset SalesStartsAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset SalesEndsAt { get; set; } = DateTimeOffset.MaxValue;
+        public string? ImageUrl { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

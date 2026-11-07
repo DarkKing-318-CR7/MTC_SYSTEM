@@ -35,6 +35,8 @@ namespace MTC_System.Data
 
         // [Dev 5]
         public DbSet<Subscription> Subscriptions { get; set; } = null!;
+        public DbSet<SubscriptionChange> SubscriptionChanges { get; set; } = null!;
+        public DbSet<UpgradePurchase> UpgradePurchases { get; set; } = null!;
         public DbSet<Invoice> Invoices { get; set; } = null!;
 
         // ============================================================
