@@ -11,6 +11,7 @@ namespace MTC_System.Models
     {
         public string DeviceCode { get; set; } = string.Empty;  // Mã định danh duy nhất
         public string DeviceName { get; set; } = string.Empty;
+        public string? Description { get; set; }
         public string? SerialNumber { get; set; }
 
         public string? IpAddress { get; set; }
@@ -21,7 +22,8 @@ namespace MTC_System.Models
         /// <summary>HĐH: "Android" | "Linux" | "Windows" (Phục vụ báo cáo tỉ lệ HĐH)</summary>
         public string OsType { get; set; } = "Android";
 
-        public string? VendorName { get; set; }                  // Tên nhà cung cấp (mặc định: Alta Media)
+        public Guid? DeviceVendorId { get; set; }
+        public string? VendorName { get; set; }                  // Giữ tương thích dữ liệu/API cũ
 
         // Khóa ngoại: Nhóm thiết bị (Nullable - thiết bị có thể chưa thuộc nhóm nào)
         public Guid? DeviceGroupId { get; set; }
@@ -68,5 +70,8 @@ namespace MTC_System.Models
 
         [JsonIgnore]
         public virtual DeviceGroup? DeviceGroup { get; set; }
+
+        [JsonIgnore]
+        public virtual DeviceVendor? DeviceVendor { get; set; }
     }
 }

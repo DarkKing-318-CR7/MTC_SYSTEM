@@ -58,6 +58,7 @@ public sealed class BroadcastSchedulerHostedService : BackgroundService
 
         int count = 0;
         var broadcastsToUpdateStatus = new HashSet<Guid>();
+        var activeScheduleIds = new HashSet<Guid>();
 
         foreach (var broadcast in activeBroadcasts)
         {
@@ -87,6 +88,7 @@ public sealed class BroadcastSchedulerHostedService : BackgroundService
 
                 if (activeSlots.Count > 0)
                 {
+                    activeScheduleIds.Add(schedule.Id);
                     foreach (var slot in activeSlots)
                     {
                         var dispatched = await dispatcher.DispatchBroadcastToDevicesAsync(
@@ -108,6 +110,7 @@ public sealed class BroadcastSchedulerHostedService : BackgroundService
                 }
                 else if (schedule.TimeSlots.Count == 0)
                 {
+                    activeScheduleIds.Add(schedule.Id);
                     // Lịch phát không có time slot riêng lẻ -> phát trong suốt ngày
                     var dispatched = await dispatcher.DispatchBroadcastToDevicesAsync(
                         broadcast.Id,
@@ -146,6 +149,8 @@ public sealed class BroadcastSchedulerHostedService : BackgroundService
 
             await context.SaveChangesAsync(cancellationToken);
         }
+
+        await dispatcher.StopBroadcastsOutsideActiveSchedulesAsync(activeScheduleIds, cancellationToken);
 
         return count;
     }

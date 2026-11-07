@@ -116,6 +116,8 @@ public sealed class DeviceHub : Hub
             device.Longitude = request.Longitude.Value;
         if (!string.IsNullOrWhiteSpace(request.IpAddress))
             device.IpAddress = request.IpAddress.Trim();
+        if (!string.IsNullOrWhiteSpace(request.InstallationAddress) && request.InstallationAddress.Trim().Length <= 500)
+            device.InstallationAddress = request.InstallationAddress.Trim();
         device.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _context.SaveChangesAsync();

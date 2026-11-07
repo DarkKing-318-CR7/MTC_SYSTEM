@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations;
 
 namespace MTC_System.Realtime;
 
@@ -48,6 +49,10 @@ public sealed class DeviceHeartbeatRequest
 
     [JsonPropertyName("longitude")]
     public double? Longitude { get; set; }
+
+    [JsonPropertyName("installationAddress")]
+    [StringLength(500)]
+    public string? InstallationAddress { get; set; }
 
     [JsonPropertyName("freeStorageBytes")]
     public long? FreeStorageBytes { get; set; }

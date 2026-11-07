@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using MTC_System.Common;
 using MTC_System.Data;
 using MTC_System.DTOs.DeviceVendors;
@@ -35,7 +36,7 @@ public sealed class DeviceVendorService : IDeviceVendorService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var keyword = search.Trim().ToLower();
-            query = query.Where(x => x.VendorName.ToLower().Contains(keyword));
+            query = query.Where(x => x.VendorName.ToLower().Contains(keyword) || x.VendorCode.ToLower().Contains(keyword));
         }
 
         var entities = await query.OrderByDescending(x => x.IsDefault).ThenBy(x => x.VendorName)
@@ -66,10 +67,13 @@ public sealed class DeviceVendorService : IDeviceVendorService
 
         await ValidateOrganizationAsync(request.OrganizationId, cancellationToken);
         await EnsureUniqueNameAsync(request.OrganizationId, request.VendorName, null, cancellationToken);
+        var vendorCode = NormalizeVendorCode(request.VendorCode);
+        await EnsureUniqueCodeAsync(vendorCode, null, cancellationToken);
 
         var entity = new DeviceVendor
         {
             OrganizationId = request.OrganizationId,
+            VendorCode = vendorCode,
             VendorName = request.VendorName.Trim(),
             ContactEmail = request.ContactEmail?.Trim(),
             ContactPhone = request.ContactPhone?.Trim(),
@@ -95,8 +99,11 @@ public sealed class DeviceVendorService : IDeviceVendorService
 
         await ValidateOrganizationAsync(request.OrganizationId, cancellationToken);
         await EnsureUniqueNameAsync(request.OrganizationId, request.VendorName, id, cancellationToken);
+        var vendorCode = NormalizeVendorCode(request.VendorCode);
+        await EnsureUniqueCodeAsync(vendorCode, id, cancellationToken);
 
         entity.OrganizationId = request.OrganizationId;
+        entity.VendorCode = vendorCode;
         entity.VendorName = request.VendorName.Trim();
         entity.ContactEmail = request.ContactEmail?.Trim();
         entity.ContactPhone = request.ContactPhone?.Trim();
@@ -119,6 +126,9 @@ public sealed class DeviceVendorService : IDeviceVendorService
             context.ValidateScope(entity.OrganizationId.Value);
         else if (!context.IsSystemAdministrator)
             throw DeviceModuleException.Forbidden("Chỉ Quản trị viên hệ thống mới có quyền xóa nhà phân phối mặc định.");
+
+        if (entity.IsDefault)
+            throw DeviceModuleException.BadRequest("Không được xóa nhà phân phối mặc định của hệ thống.");
 
         entity.IsDeleted = true;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
@@ -157,10 +167,32 @@ public sealed class DeviceVendorService : IDeviceVendorService
             throw DeviceModuleException.Conflict("Tên nhà phân phối đã tồn tại trong phạm vi này.");
     }
 
+    private async Task EnsureUniqueCodeAsync(string vendorCode, Guid? currentId, CancellationToken cancellationToken)
+    {
+        var normalized = vendorCode.ToLowerInvariant();
+        var isDuplicate = await _context.DeviceVendors.AnyAsync(
+            x => x.VendorCode.ToLower() == normalized &&
+                 (!currentId.HasValue || x.Id != currentId.Value) &&
+                 !x.IsDeleted,
+            cancellationToken);
+
+        if (isDuplicate)
+            throw DeviceModuleException.Conflict("Mã nhà phân phối đã tồn tại.");
+    }
+
+    private static string NormalizeVendorCode(string vendorCode)
+    {
+        var normalized = vendorCode.Trim();
+        if (!Regex.IsMatch(normalized, "^[A-Za-z0-9_-]+$"))
+            throw DeviceModuleException.BadRequest("Mã nhà phân phối chỉ được chứa chữ, số, dấu gạch ngang hoặc gạch dưới.");
+        return normalized;
+    }
+
     private static DeviceVendorResponse Map(DeviceVendor x) => new()
     {
         Id = x.Id,
         OrganizationId = x.OrganizationId,
+        VendorCode = x.VendorCode,
         VendorName = x.VendorName,
         ContactEmail = x.ContactEmail,
         ContactPhone = x.ContactPhone,

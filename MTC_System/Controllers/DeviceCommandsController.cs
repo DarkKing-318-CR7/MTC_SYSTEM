@@ -49,37 +49,33 @@ public sealed class DeviceCommandsController : ControllerBase
         var scope = User.GetUserScope();
         scope.ValidateScope(device.OrganizationId, device.FacilityId);
 
-        var commandId = Guid.NewGuid();
-        // Register command with target volume in manager; do NOT mutate device.Volume until successful ACK! (Item 8)
-        _commandManager.RegisterCommand(commandId, device.Id, "SetVolume", "Pending", targetVolume: request.Volume);
+        var result = await SendVolumeAsync(device, request.Volume, scope.UserId, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(ApiResponse<object>.Ok(result, "Lệnh điều chỉnh âm lượng đã được tạo."));
+    }
 
-        var envelope = new DeviceCommandEnvelope
-        {
-            CommandId = commandId,
-            DeviceId = device.Id,
-            Type = "SetVolume",
-            Payload = new { volume = request.Volume }
-        };
+    [HttpPost("commands/volume")]
+    public async Task<ActionResult<ApiResponse<object>>> SetVolumeBulk(
+        [FromBody] BulkSetVolumeCommandRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.Volume < 0 || request.Volume > 100)
+            return BadRequest(ApiResponse<object>.Fail("Âm lượng phải nằm trong khoảng 0 đến 100."));
 
-        bool sent = false;
-        if (_connectionManager.TryGetConnectionId(device.Id, out var connectionId) && !string.IsNullOrEmpty(connectionId))
-        {
-            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveCommand", envelope, cancellationToken);
-            _commandManager.MarkSent(commandId);
-            sent = true;
-        }
+        var validation = await LoadBulkDevicesAsync(request.DeviceIds, cancellationToken);
+        if (validation.Error is not null)
+            return BadRequest(ApiResponse<object>.Fail(validation.Error));
 
-        _context.DeviceActivityLogs.Add(new DeviceActivityLog
-        {
-            DeviceId = device.Id,
-            UserId = scope.UserId,
-            ActionType = "SetVolume",
-            Result = sent ? "Đã gửi" : "Thiết bị offline",
-            ActionDetail = $"{{\"volume\":{request.Volume},\"commandId\":\"{commandId}\",\"sentRealtime\":{sent.ToString().ToLower()}}}"
-        });
+        var scope = User.GetUserScope();
+        foreach (var device in validation.Devices)
+            scope.ValidateScope(device.OrganizationId, device.FacilityId);
+
+        var results = new List<DeviceCommandResult>();
+        foreach (var device in validation.Devices)
+            results.Add(await SendVolumeAsync(device, request.Volume, scope.UserId, cancellationToken));
 
         await _context.SaveChangesAsync(cancellationToken);
-        return Ok(ApiResponse<object>.Ok(new { commandId, sentRealtime = sent, volume = request.Volume }, "Lệnh điều chỉnh âm lượng đã được tạo."));
+        return Ok(ApiResponse<object>.Ok(new { count = results.Count, results }, "Đã tạo lệnh âm lượng hàng loạt."));
     }
 
     [HttpPost("{id:guid}/commands/reboot")]
@@ -94,40 +90,127 @@ public sealed class DeviceCommandsController : ControllerBase
         var scope = User.GetUserScope();
         scope.ValidateScope(device.OrganizationId, device.FacilityId);
 
+        var result = await SendRebootAsync(device, scope.UserId, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(ApiResponse<object>.Ok(result, "Lệnh khởi động lại đã được tạo."));
+    }
+
+    [HttpPost("commands/reboot")]
+    public async Task<ActionResult<ApiResponse<object>>> RebootBulk(
+        [FromBody] BulkRebootCommandRequest request,
+        CancellationToken cancellationToken)
+    {
+        var validation = await LoadBulkDevicesAsync(request.DeviceIds, cancellationToken);
+        if (validation.Error is not null)
+            return BadRequest(ApiResponse<object>.Fail(validation.Error));
+
+        var scope = User.GetUserScope();
+        foreach (var device in validation.Devices)
+            scope.ValidateScope(device.OrganizationId, device.FacilityId);
+
+        var results = new List<DeviceCommandResult>();
+        foreach (var device in validation.Devices)
+            results.Add(await SendRebootAsync(device, scope.UserId, cancellationToken));
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { count = results.Count, results }, "Đã tạo lệnh khởi động lại hàng loạt."));
+    }
+
+    private async Task<(List<Device> Devices, string? Error)> LoadBulkDevicesAsync(
+        IReadOnlyCollection<Guid>? requestedIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = requestedIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? [];
+        if (ids.Count == 0 || ids.Count > 100)
+            return ([], "Danh sách thiết bị phải có từ 1 đến 100 mã hợp lệ.");
+
+        var devices = await _context.Devices
+            .Where(x => ids.Contains(x.Id) && !x.IsDeleted)
+            .ToListAsync(cancellationToken);
+        if (devices.Count != ids.Count)
+            return ([], "Có thiết bị không tồn tại hoặc đã bị xóa; không lệnh nào được tạo.");
+
+        return (devices, null);
+    }
+
+    private async Task<DeviceCommandResult> SendVolumeAsync(
+        Device device,
+        int volume,
+        Guid? userId,
+        CancellationToken cancellationToken)
+    {
         var commandId = Guid.NewGuid();
-        _commandManager.RegisterCommand(commandId, device.Id, "Reboot", "Pending");
-
-        var envelope = new DeviceCommandEnvelope
-        {
-            CommandId = commandId,
-            DeviceId = device.Id,
-            Type = "Reboot",
-            Payload = new { delaySeconds = 5 }
-        };
-
-        bool sent = false;
-        if (_connectionManager.TryGetConnectionId(device.Id, out var connectionId) && !string.IsNullOrEmpty(connectionId))
-        {
-            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveCommand", envelope, cancellationToken);
-            _commandManager.MarkSent(commandId);
-            sent = true;
-        }
+        _commandManager.RegisterCommand(commandId, device.Id, "SetVolume", "Pending", targetVolume: volume);
+        var sent = await SendEnvelopeAsync(device.Id, commandId, "SetVolume", new { volume }, cancellationToken);
 
         _context.DeviceActivityLogs.Add(new DeviceActivityLog
         {
             DeviceId = device.Id,
-            UserId = scope.UserId,
+            UserId = userId,
+            ActionType = "SetVolume",
+            Result = sent ? "Đã gửi" : "Thiết bị offline",
+            ActionDetail = $"{{\"volume\":{volume},\"commandId\":\"{commandId}\",\"sentRealtime\":{sent.ToString().ToLower()}}}"
+        });
+
+        return new DeviceCommandResult(device.Id, commandId, sent, volume);
+    }
+
+    private async Task<DeviceCommandResult> SendRebootAsync(
+        Device device,
+        Guid? userId,
+        CancellationToken cancellationToken)
+    {
+        var commandId = Guid.NewGuid();
+        _commandManager.RegisterCommand(commandId, device.Id, "Reboot", "Pending");
+        var sent = await SendEnvelopeAsync(device.Id, commandId, "Reboot", new { delaySeconds = 5 }, cancellationToken);
+
+        _context.DeviceActivityLogs.Add(new DeviceActivityLog
+        {
+            DeviceId = device.Id,
+            UserId = userId,
             ActionType = "Reboot",
             Result = sent ? "Đã gửi" : "Thiết bị offline",
             ActionDetail = $"{{\"commandId\":\"{commandId}\",\"sentRealtime\":{sent.ToString().ToLower()}}}"
         });
 
-        await _context.SaveChangesAsync(cancellationToken);
-        return Ok(ApiResponse<object>.Ok(new { commandId, sentRealtime = sent }, "Lệnh khởi động lại đã được tạo."));
+        return new DeviceCommandResult(device.Id, commandId, sent, null);
+    }
+
+    private async Task<bool> SendEnvelopeAsync(
+        Guid deviceId,
+        Guid commandId,
+        string type,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        if (!_connectionManager.TryGetConnectionId(deviceId, out var connectionId) || string.IsNullOrEmpty(connectionId))
+            return false;
+
+        await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveCommand", new DeviceCommandEnvelope
+        {
+            CommandId = commandId,
+            DeviceId = deviceId,
+            Type = type,
+            Payload = payload
+        }, cancellationToken);
+        _commandManager.MarkSent(commandId);
+        return true;
     }
 }
 
-public sealed class SetVolumeCommandRequest
+public class SetVolumeCommandRequest
 {
     public int Volume { get; set; }
 }
+
+public sealed class BulkSetVolumeCommandRequest : SetVolumeCommandRequest
+{
+    public List<Guid> DeviceIds { get; set; } = [];
+}
+
+public sealed class BulkRebootCommandRequest
+{
+    public List<Guid> DeviceIds { get; set; } = [];
+}
+
+public sealed record DeviceCommandResult(Guid DeviceId, Guid CommandId, bool SentRealtime, int? Volume);

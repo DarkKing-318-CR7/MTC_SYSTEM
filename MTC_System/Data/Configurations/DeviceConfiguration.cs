@@ -15,6 +15,7 @@ namespace MTC_System.Data.Configurations
             builder.HasIndex(d => d.DeviceCode).IsUnique();
 
             builder.Property(d => d.DeviceName).IsRequired().HasMaxLength(255);
+            builder.Property(d => d.Description).HasMaxLength(1000);
             builder.Property(d => d.SerialNumber).HasMaxLength(100);
             builder.Property(d => d.IpAddress).HasMaxLength(50);
             builder.Property(d => d.SimPhoneNumber).HasMaxLength(20);
@@ -47,6 +48,12 @@ namespace MTC_System.Data.Configurations
             builder.HasOne(d => d.DeviceGroup)
                    .WithMany(g => g.Devices)
                    .HasForeignKey(d => d.DeviceGroupId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasOne(d => d.DeviceVendor)
+                   .WithMany(v => v.Devices)
+                   .HasForeignKey(d => d.DeviceVendorId)
                    .OnDelete(DeleteBehavior.SetNull)
                    .IsRequired(false);
         }

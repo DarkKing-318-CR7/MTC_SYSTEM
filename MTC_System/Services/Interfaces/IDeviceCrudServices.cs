@@ -11,6 +11,7 @@ namespace MTC_System.Services.Interfaces;
 public interface IDeviceService
 {
     Task<IReadOnlyList<DeviceResponse>> GetAllAsync(UserScopeContext context, Guid? organizationId, Guid? facilityId, string? search, CancellationToken cancellationToken);
+    Task<IReadOnlyList<DeviceMapItemResponse>> GetMapAsync(UserScopeContext context, Guid? organizationId, Guid? facilityId, CancellationToken cancellationToken);
     Task<DeviceResponse> GetByIdAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken);
     Task<DeviceResponse> CreateAsync(CreateDeviceRequest request, UserScopeContext context, CancellationToken cancellationToken);
     Task<DeviceResponse> UpdateAsync(Guid id, UpdateDeviceRequest request, UserScopeContext context, CancellationToken cancellationToken);

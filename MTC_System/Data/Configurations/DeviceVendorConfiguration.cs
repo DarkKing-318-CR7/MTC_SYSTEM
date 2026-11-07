@@ -12,6 +12,8 @@ namespace MTC_System.Data.Configurations
         {
             builder.HasKey(v => v.Id);
 
+            builder.Property(v => v.VendorCode).IsRequired().HasMaxLength(50);
+            builder.HasIndex(v => v.VendorCode).IsUnique();
             builder.Property(v => v.VendorName).IsRequired().HasMaxLength(255);
             builder.Property(v => v.ContactEmail).HasMaxLength(255);
             builder.Property(v => v.ContactPhone).HasMaxLength(20);
@@ -35,6 +37,7 @@ namespace MTC_System.Data.Configurations
                 new DeviceVendor
                 {
                     Id = Guid.Parse("dddddddd-0001-0000-0000-000000000000"),
+                    VendorCode = "AltaMedia",
                     VendorName = "Alta Media",
                     ContactEmail = "support@altamedia.vn",
                     ContactPhone = "02822432432",

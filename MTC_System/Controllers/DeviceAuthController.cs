@@ -75,6 +75,8 @@ public sealed class DeviceAuthController : ControllerBase
             device.Longitude = request.Longitude.Value;
         if (!string.IsNullOrWhiteSpace(request.IpAddress))
             device.IpAddress = request.IpAddress.Trim();
+        if (!string.IsNullOrWhiteSpace(request.InstallationAddress))
+            device.InstallationAddress = request.InstallationAddress.Trim();
         device.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);

@@ -14,6 +14,10 @@ public interface IBroadcastRealtimeDispatcher
         Guid? timeSlotId = null,
         DateTimeOffset? occurrenceTime = null,
         CancellationToken cancellationToken = default);
+
+    Task<int> StopBroadcastsOutsideActiveSchedulesAsync(
+        IReadOnlySet<Guid> activeScheduleIds,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
@@ -302,6 +306,13 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
                 _commandManager.MarkSent(commandId);
                 dispatchedCount++;
 
+                var device = await _context.Devices.FirstOrDefaultAsync(d => d.Id == deviceId && !d.IsDeleted, cancellationToken);
+                if (device is not null)
+                {
+                    device.PlayStatus = "Đang phát bản tin";
+                    device.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+
                 // Nếu trước đó đã ghi nhận "Thiết bị offline" cho occurrence này, nâng cấp bản ghi sang "Đang phát"
                 var existingOfflineHistory = await _context.DevicePlayHistories
                     .FirstOrDefaultAsync(h => h.BroadcastId == broadcast.Id &&
@@ -347,6 +358,73 @@ public sealed class BroadcastRealtimeDispatcher : IBroadcastRealtimeDispatcher
             broadcastId, dispatchedCount, targetDeviceIds.Count);
 
         return dispatchedCount;
+    }
+
+    public async Task<int> StopBroadcastsOutsideActiveSchedulesAsync(
+        IReadOnlySet<Guid> activeScheduleIds,
+        CancellationToken cancellationToken = default)
+    {
+        var runningHistories = await _context.DevicePlayHistories
+            .Where(x => !x.IsDeleted && x.PlayResult == "Đang phát" && x.BroadcastScheduleId.HasValue)
+            .OrderBy(x => x.StartedAt)
+            .ToListAsync(cancellationToken);
+
+        var expired = runningHistories
+            .Where(x => !activeScheduleIds.Contains(x.BroadcastScheduleId!.Value))
+            .ToList();
+        if (expired.Count == 0)
+            return 0;
+
+        var stillActiveDeviceIds = runningHistories
+            .Where(x => activeScheduleIds.Contains(x.BroadcastScheduleId!.Value))
+            .Select(x => x.DeviceId)
+            .ToHashSet();
+        var expiredDeviceIds = expired.Select(x => x.DeviceId).Distinct().ToList();
+        var devicesToStop = await _context.Devices
+            .Where(x => expiredDeviceIds.Contains(x.Id) && !x.IsDeleted)
+            .ToListAsync(cancellationToken);
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var history in expired)
+        {
+            history.EndedAt = now;
+            history.PlayResult = "Hoàn thành";
+            history.Notes = $"{history.Notes}; StopReason=ScheduleEnded; StoppedAt={now:O}";
+        }
+
+        var stoppedCount = 0;
+        foreach (var device in devicesToStop.Where(x => !stillActiveDeviceIds.Contains(x.Id)))
+        {
+            var commandId = Guid.NewGuid();
+            _commandManager.RegisterCommand(commandId, device.Id, "StopBroadcast", "Pending");
+            var sent = false;
+            if (_connectionManager.TryGetConnectionId(device.Id, out var connectionId) && !string.IsNullOrEmpty(connectionId))
+            {
+                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveCommand", new DeviceCommandEnvelope
+                {
+                    CommandId = commandId,
+                    DeviceId = device.Id,
+                    Type = "StopBroadcast",
+                    Payload = new { reason = "ScheduleEnded", stoppedAt = now }
+                }, cancellationToken);
+                _commandManager.MarkSent(commandId);
+                sent = true;
+            }
+
+            device.PlayStatus = "Dừng phát bản tin";
+            device.UpdatedAt = now;
+            _context.DeviceActivityLogs.Add(new DeviceActivityLog
+            {
+                DeviceId = device.Id,
+                ActionType = "StopBroadcast",
+                Result = sent ? "Đã gửi" : "Thiết bị offline",
+                ActionDetail = $"{{\"commandId\":\"{commandId}\",\"reason\":\"ScheduleEnded\",\"sentRealtime\":{sent.ToString().ToLower()}}}"
+            });
+            stoppedCount++;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return stoppedCount;
     }
 
     private static TimeZoneInfo ResolveTimeZone(string? tzString)

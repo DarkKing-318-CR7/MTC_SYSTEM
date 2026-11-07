@@ -41,6 +41,17 @@ public sealed class DevicesController : ControllerBase
         return Ok(ApiResponse<DeviceResponse>.Ok(data));
     }
 
+    [HttpGet("map")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<DeviceMapItemResponse>>>> GetMap(
+        [FromQuery] Guid? organizationId,
+        [FromQuery] Guid? facilityId,
+        CancellationToken cancellationToken)
+    {
+        var scope = User.GetUserScope();
+        var data = await _service.GetMapAsync(scope, organizationId, facilityId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<DeviceMapItemResponse>>.Ok(data));
+    }
+
     [HttpPost]
     [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DeviceResponse>>> Create(
