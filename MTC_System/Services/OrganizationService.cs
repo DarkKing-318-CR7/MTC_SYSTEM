@@ -59,7 +59,7 @@ namespace MTC_System.Services
 
         public async Task<ApiResponse<OrganizationResponseDto>> CreateAsync(CreateOrganizationDto dto)
         {
-
+            
             if (dto.EffectiveDate.Date < DateTime.UtcNow.Date)
             {
                 return ApiResponse<OrganizationResponseDto>.Fail("Ngày hiệu lực của tổ chức phải lớn hơn hoặc bằng ngày hiện tại!");

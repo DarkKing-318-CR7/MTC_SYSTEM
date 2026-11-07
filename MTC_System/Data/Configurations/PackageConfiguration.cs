@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MTC_System.Models;
@@ -23,7 +23,6 @@ namespace MTC_System.Data.Configurations
             builder.HasIndex(p => new { p.DurationMonths, p.RegistrationStartsAt, p.RegistrationEndsAt });
 
             // SEED: 3 gói cước bán sẵn mặc định
-
             builder.HasData(
                 new Package
                 {

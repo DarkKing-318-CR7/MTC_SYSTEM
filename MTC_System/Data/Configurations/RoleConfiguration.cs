@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MTC_System.Models;
@@ -39,7 +39,6 @@ namespace MTC_System.Data.Configurations
                    .IsRequired(false);
 
             // SEED: 4 vai trò mặc định của hệ thống (OrganizationId = null)
-
             builder.HasData(
                 new Role
                 {

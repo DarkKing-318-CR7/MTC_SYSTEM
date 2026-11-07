@@ -88,15 +88,9 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
             await WriteMetadataAsync(directory, metadata, cancellationToken);
             _db.MediaUploadSessions.Add(new MediaUploadSession
             {
-                UploadIdentifier = identifier.ToString("N"),
-                Status = UploadingStatus,
-                ExpectedFileName = fileName,
-                ExpectedFileSize = request.FileSize,
-                ChunkSize = _chunkSize,
-                TotalChunks = chunks,
-                ReceivedChunksBitmap = new byte[(chunks + 7) / 8],
-                TempFilePath = directory,
-                ExpiresAt = expiresAt,
+                UploadIdentifier = identifier.ToString("N"), Status = UploadingStatus, ExpectedFileName = fileName,
+                ExpectedFileSize = request.FileSize, ChunkSize = _chunkSize, TotalChunks = chunks,
+                ReceivedChunksBitmap = new byte[(chunks + 7) / 8], TempFilePath = directory, ExpiresAt = expiresAt,
                 CreatedBy = userId
             });
             await _db.SaveChangesAsync(cancellationToken);
@@ -176,7 +170,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                 _db.Entry(session)
                     .Property(x => x.ReceivedChunksBitmap)
                     .IsModified = true;
-                try { await _db.SaveChangesAsync(cancellationToken); }
+                try { await _db.SaveChangesAsync(cancellationToken);}
                 catch { TryDeleteFile(chunkPath); throw; }
                 return ToStatus(session);
             }
@@ -425,14 +419,9 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
         var received = CountReceivedChunks(session);
         return new MediaUploadStatusResponseDto
         {
-            UploadIdentifier = session.UploadIdentifier,
-            Status = session.Status,
-            ReceivedChunks = received,
-            TotalChunks = session.TotalChunks,
-            ProgressPercentage = session.TotalChunks == 0 ? 0 : (double)received / session.TotalChunks * 100,
-            ExpiresAt = session.ExpiresAt,
-            FailureReason = session.FailedReason,
-            MediaId = session.MediaId
+            UploadIdentifier = session.UploadIdentifier, Status = session.Status, ReceivedChunks = received,
+            TotalChunks = session.TotalChunks, ProgressPercentage = session.TotalChunks == 0 ? 0 : (double)received / session.TotalChunks * 100,
+            ExpiresAt = session.ExpiresAt, FailureReason = session.FailedReason, MediaId = session.MediaId
         };
     }
 
@@ -514,9 +503,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
     }
     private static string GetMediaType(string extension) => extension switch
     {
-        ".mp4" => "Video",
-        ".mp3" or ".wav" => "Audio",
-        ".png" or ".jpg" or ".jpeg" => "Image",
+        ".mp4" => "Video", ".mp3" or ".wav" => "Audio", ".png" or ".jpg" or ".jpeg" => "Image",
         _ => throw new MediaUploadException(StatusCodes.Status400BadRequest, "File type is not supported.")
     };
     private static void CleanupAssemblyFiles(string directory)
