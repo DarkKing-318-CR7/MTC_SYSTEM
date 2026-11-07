@@ -12,6 +12,8 @@ namespace MTC_System.Data.Configurations
             builder.HasKey(s => s.Id);
 
             builder.Property(s => s.Status).IsRequired().HasMaxLength(50).HasDefaultValue("Đang hoạt động");
+            builder.Property(s => s.AutoRenew).HasDefaultValue(true);
+            builder.Property(s => s.AutoRenew).HasDefaultValue(true);
             builder.Property(s => s.CustomPackageName).HasMaxLength(255);
             builder.Property(s => s.CustomPrice).HasPrecision(18, 2);
             builder.Property(s => s.ActualPrice).HasPrecision(18, 2);

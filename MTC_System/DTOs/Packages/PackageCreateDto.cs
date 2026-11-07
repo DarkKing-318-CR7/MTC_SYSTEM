@@ -27,6 +27,9 @@ namespace MTC_System.DTOs.Packages
         [Range(1, 120)]
         public int DurationMonths { get; set; } = 1;
 
+        public DateTimeOffset RegistrationStartsAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset RegistrationEndsAt { get; set; } = DateTimeOffset.MaxValue;
+
         public bool IsActive { get; set; } = true;
 
         public bool IsCustom { get; set; } = false;
