@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using MTC_System.Common;
 using MTC_System.Data;
 using MTC_System.DTOs.Devices;
 using MTC_System.Models;
@@ -8,6 +10,7 @@ namespace MTC_System.Services.Implementations;
 
 public sealed class DeviceService : IDeviceService
 {
+    private static readonly Guid DefaultVendorId = Guid.Parse("dddddddd-0001-0000-0000-000000000000");
     private static readonly HashSet<string> AllowedOsTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "Android", "Linux", "Windows"
@@ -28,11 +31,30 @@ public sealed class DeviceService : IDeviceService
     public DeviceService(MyDbContext context) => _context = context;
 
     public async Task<IReadOnlyList<DeviceResponse>> GetAllAsync(
+        UserScopeContext context,
         Guid? organizationId,
         Guid? facilityId,
         string? search,
         CancellationToken cancellationToken)
     {
+        context.EnsureCanAccess();
+
+        if (!context.IsSystemAdministrator)
+        {
+            if (organizationId.HasValue && organizationId.Value != context.OrganizationId!.Value)
+                throw DeviceModuleException.Forbidden("Không được phép truy vấn dữ liệu của tổ chức khác (Fail-Closed).");
+
+            organizationId = context.OrganizationId;
+
+            if (context.FacilityId.HasValue)
+            {
+                if (facilityId.HasValue && facilityId.Value != context.FacilityId.Value)
+                    throw DeviceModuleException.Forbidden("Không được phép truy vấn dữ liệu của cơ sở khác (Fail-Closed).");
+
+                facilityId = context.FacilityId;
+            }
+        }
+
         var query = _context.Devices.AsNoTracking().Where(x => !x.IsDeleted);
         if (organizationId.HasValue)
             query = query.Where(x => x.OrganizationId == organizationId.Value);
@@ -53,16 +75,73 @@ public sealed class DeviceService : IDeviceService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<DeviceResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<DeviceResponse> GetByIdAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken)
     {
+        var device = await _context.Devices.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
+            ?? throw DeviceModuleException.NotFound("Không tìm thấy thiết bị.");
+
+        context.ValidateScope(device.OrganizationId, device.FacilityId);
+
         var result = await Project(_context.Devices.AsNoTracking().Where(x => x.Id == id && !x.IsDeleted))
             .FirstOrDefaultAsync(cancellationToken);
-        return result ?? throw DeviceModuleException.NotFound("Không tìm thấy thiết bị.");
+        return result!;
     }
 
-    public async Task<DeviceResponse> CreateAsync(CreateDeviceRequest request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<DeviceMapItemResponse>> GetMapAsync(
+        UserScopeContext context,
+        Guid? organizationId,
+        Guid? facilityId,
+        CancellationToken cancellationToken)
     {
+        context.EnsureCanAccess();
+
+        if (!context.IsSystemAdministrator)
+        {
+            if (organizationId.HasValue && organizationId.Value != context.OrganizationId!.Value)
+                throw DeviceModuleException.Forbidden("Không được phép truy vấn bản đồ của tổ chức khác (Fail-Closed).");
+
+            organizationId = context.OrganizationId;
+            if (context.FacilityId.HasValue)
+            {
+                if (facilityId.HasValue && facilityId.Value != context.FacilityId.Value)
+                    throw DeviceModuleException.Forbidden("Không được phép truy vấn bản đồ của cơ sở khác (Fail-Closed).");
+                facilityId = context.FacilityId;
+            }
+        }
+
+        var query = _context.Devices.AsNoTracking().Where(x => !x.IsDeleted);
+        if (organizationId.HasValue)
+            query = query.Where(x => x.OrganizationId == organizationId.Value);
+        if (facilityId.HasValue)
+            query = query.Where(x => x.FacilityId == facilityId.Value);
+
+        return await query
+            .OrderBy(x => x.DeviceName)
+            .Select(x => new DeviceMapItemResponse
+            {
+                DeviceId = x.Id,
+                DeviceCode = x.DeviceCode,
+                DeviceName = x.DeviceName,
+                OrganizationId = x.OrganizationId,
+                FacilityId = x.FacilityId,
+                Latitude = x.Latitude,
+                Longitude = x.Longitude,
+                InstallationAddress = x.InstallationAddress,
+                ConnectionStatus = x.ConnectionStatus,
+                PlayStatus = x.PlayStatus,
+                LastOnlineAt = x.LastOnlineAt
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<DeviceResponse> CreateAsync(CreateDeviceRequest request, UserScopeContext context, CancellationToken cancellationToken)
+    {
+        context.EnsureCanAccess();
+        context.ValidateScope(request.OrganizationId, request.FacilityId);
+
         await ValidateRequestAsync(request, null, cancellationToken);
+        var vendor = await ResolveVendorAsync(request.OrganizationId, request.DeviceVendorId, request.VendorName, cancellationToken);
 
         var entity = new Device
         {
@@ -70,13 +149,15 @@ public sealed class DeviceService : IDeviceService
             FacilityId = request.FacilityId,
             DeviceCode = request.DeviceCode.Trim().ToUpperInvariant(),
             DeviceName = request.DeviceName.Trim(),
+            Description = Clean(request.Description),
             SerialNumber = Clean(request.SerialNumber),
             IpAddress = Clean(request.IpAddress),
             SimPhoneNumber = Clean(request.SimPhoneNumber),
             SimSerialNumber = Clean(request.SimSerialNumber),
             Tag = Clean(request.Tag),
             OsType = NormalizeOsType(request.OsType),
-            VendorName = Clean(request.VendorName),
+            DeviceVendorId = vendor.Id,
+            VendorName = vendor.VendorName,
             DeviceGroupId = request.DeviceGroupId,
             ActiveStatus = request.ActiveStatus,
             ConnectionStatus = "Mất kết nối",
@@ -92,29 +173,55 @@ public sealed class DeviceService : IDeviceService
         };
 
         _context.Devices.Add(entity);
+        _context.DeviceActivityLogs.Add(CreateCrudLog(entity.Id, context.UserId, "DeviceCreated", new
+        {
+            entity.DeviceCode,
+            entity.DeviceName,
+            entity.FacilityId,
+            entity.DeviceVendorId
+        }));
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(entity.Id, cancellationToken);
+        return await GetByIdAsync(entity.Id, context, cancellationToken);
     }
 
-    public async Task<DeviceResponse> UpdateAsync(Guid id, UpdateDeviceRequest request, CancellationToken cancellationToken)
+    public async Task<DeviceResponse> UpdateAsync(Guid id, UpdateDeviceRequest request, UserScopeContext context, CancellationToken cancellationToken)
     {
         var entity = await _context.Devices.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
             ?? throw DeviceModuleException.NotFound("Không tìm thấy thiết bị.");
 
-        await ValidateRequestAsync(request, id, cancellationToken);
-        ValidateStatuses(request.ConnectionStatus, request.PlayStatus);
+        context.ValidateScope(entity.OrganizationId, entity.FacilityId);
 
-        entity.OrganizationId = request.OrganizationId;
+        if (request.OrganizationId != entity.OrganizationId)
+            throw DeviceModuleException.BadRequest("Không được phép thay đổi OrganizationId của thiết bị.");
+
+        context.ValidateScope(request.OrganizationId, request.FacilityId);
+
+        await ValidateRequestAsync(request, id, cancellationToken);
+        var vendor = await ResolveVendorAsync(request.OrganizationId, request.DeviceVendorId, request.VendorName, cancellationToken);
+        ValidateStatuses(request.ConnectionStatus, request.PlayStatus);
+        var isBeingLocked = entity.ActiveStatus && !request.ActiveStatus;
+        var before = new
+        {
+            entity.DeviceCode,
+            entity.DeviceName,
+            entity.FacilityId,
+            entity.DeviceVendorId,
+            entity.ActiveStatus,
+            entity.Volume
+        };
+
         entity.FacilityId = request.FacilityId;
         entity.DeviceCode = request.DeviceCode.Trim().ToUpperInvariant();
         entity.DeviceName = request.DeviceName.Trim();
+        entity.Description = Clean(request.Description);
         entity.SerialNumber = Clean(request.SerialNumber);
         entity.IpAddress = Clean(request.IpAddress);
         entity.SimPhoneNumber = Clean(request.SimPhoneNumber);
         entity.SimSerialNumber = Clean(request.SimSerialNumber);
         entity.Tag = Clean(request.Tag);
         entity.OsType = NormalizeOsType(request.OsType);
-        entity.VendorName = Clean(request.VendorName);
+        entity.DeviceVendorId = vendor.Id;
+        entity.VendorName = vendor.VendorName;
         entity.DeviceGroupId = request.DeviceGroupId;
         entity.ActiveStatus = request.ActiveStatus;
         entity.ConnectionStatus = request.ConnectionStatus.Trim();
@@ -126,27 +233,46 @@ public sealed class DeviceService : IDeviceService
         entity.Latitude = request.Latitude;
         entity.Longitude = request.Longitude;
         entity.InstallationAddress = Clean(request.InstallationAddress);
-        entity.IsActivated = request.IsActivated;
         entity.LastOnlineAt = request.LastOnlineAt;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+        if (isBeingLocked)
+            RevokeDeviceCredentials(entity);
 
+        _context.DeviceActivityLogs.Add(CreateCrudLog(entity.Id, context.UserId, "DeviceUpdated", new
+        {
+            before,
+            after = new
+            {
+                entity.DeviceCode,
+                entity.DeviceName,
+                entity.FacilityId,
+                entity.DeviceVendorId,
+                entity.ActiveStatus,
+                entity.Volume
+            }
+        }));
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(id, cancellationToken);
+        return await GetByIdAsync(id, context, cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken)
     {
         var entity = await _context.Devices.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
             ?? throw DeviceModuleException.NotFound("Không tìm thấy thiết bị.");
+
+        context.ValidateScope(entity.OrganizationId, entity.FacilityId);
 
         entity.IsDeleted = true;
         entity.ActiveStatus = false;
         entity.ConnectionStatus = "Mất kết nối";
         entity.PlayStatus = "Dừng phát bản tin";
-        entity.ActivationQrToken = null;
-        entity.ActivationOtp = null;
-        entity.ActivationTokenExpiry = null;
+        RevokeDeviceCredentials(entity);
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+        _context.DeviceActivityLogs.Add(CreateCrudLog(entity.Id, context.UserId, "DeviceDeleted", new
+        {
+            entity.DeviceCode,
+            entity.DeviceName
+        }));
         await _context.SaveChangesAsync(cancellationToken);
     }
 
@@ -199,43 +325,102 @@ public sealed class DeviceService : IDeviceService
 
     private static string NormalizeOsType(string osType)
     {
-        var value = osType.Trim();
-        return AllowedOsTypes.First(x => x.Equals(value, StringComparison.OrdinalIgnoreCase));
+        var trimmed = osType.Trim();
+        if (trimmed.Equals("Android", StringComparison.OrdinalIgnoreCase)) return "Android";
+        if (trimmed.Equals("Linux", StringComparison.OrdinalIgnoreCase)) return "Linux";
+        if (trimmed.Equals("Windows", StringComparison.OrdinalIgnoreCase)) return "Windows";
+        throw DeviceModuleException.BadRequest("OsType chỉ nhận Android, Linux hoặc Windows.");
     }
 
-    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static IQueryable<DeviceResponse> Project(IQueryable<Device> query) => query.Select(x => new DeviceResponse
+    private static void RevokeDeviceCredentials(Device entity)
     {
-        Id = x.Id,
-        OrganizationId = x.OrganizationId,
-        FacilityId = x.FacilityId,
-        DeviceCode = x.DeviceCode,
-        DeviceName = x.DeviceName,
-        SerialNumber = x.SerialNumber,
-        IpAddress = x.IpAddress,
-        SimPhoneNumber = x.SimPhoneNumber,
-        SimSerialNumber = x.SimSerialNumber,
-        Tag = x.Tag,
-        OsType = x.OsType,
-        VendorName = x.VendorName,
-        DeviceGroupId = x.DeviceGroupId,
-        DeviceGroupName = x.DeviceGroup != null && !x.DeviceGroup.IsDeleted ? x.DeviceGroup.GroupName : null,
-        ActiveStatus = x.ActiveStatus,
-        ConnectionStatus = x.ConnectionStatus,
-        PlayStatus = x.PlayStatus,
-        Volume = x.Volume,
-        ScreenshotUrl = x.ScreenshotUrl,
-        ScreenshotSizeInBytes = x.ScreenshotSizeInBytes,
-        LastScreenshotAt = x.LastScreenshotAt,
-        Latitude = x.Latitude,
-        Longitude = x.Longitude,
-        InstallationAddress = x.InstallationAddress,
-        IsActivated = x.IsActivated,
-        HasPendingActivation = x.ActivationQrToken != null || x.ActivationOtp != null,
-        ActivationTokenExpiry = x.ActivationTokenExpiry,
-        LastOnlineAt = x.LastOnlineAt,
-        CreatedAt = x.CreatedAt,
-        UpdatedAt = x.UpdatedAt
-    });
+        entity.ActivationOtpHash = null;
+        entity.ActivationQrTokenHash = null;
+        entity.ActivationCodeExpiresAt = null;
+        entity.DeviceRefreshTokenHash = null;
+        entity.DeviceRefreshTokenExpiresAt = null;
+        entity.DeviceTokenVersion++;
+    }
+
+    private async Task<DeviceVendor> ResolveVendorAsync(
+        Guid organizationId,
+        Guid? vendorId,
+        string? vendorName,
+        CancellationToken cancellationToken)
+    {
+        DeviceVendor? vendor;
+        if (vendorId.HasValue)
+        {
+            vendor = await _context.DeviceVendors.FirstOrDefaultAsync(
+                x => x.Id == vendorId.Value && !x.IsDeleted &&
+                     (!x.OrganizationId.HasValue || x.OrganizationId == organizationId),
+                cancellationToken);
+        }
+        else if (!string.IsNullOrWhiteSpace(vendorName))
+        {
+            var normalizedName = vendorName.Trim().ToLower();
+            vendor = await _context.DeviceVendors.FirstOrDefaultAsync(
+                x => x.VendorName.ToLower() == normalizedName && !x.IsDeleted &&
+                     (!x.OrganizationId.HasValue || x.OrganizationId == organizationId),
+                cancellationToken);
+        }
+        else
+        {
+            vendor = await _context.DeviceVendors.FirstOrDefaultAsync(
+                x => x.Id == DefaultVendorId && !x.IsDeleted,
+                cancellationToken);
+        }
+
+        return vendor ?? throw DeviceModuleException.BadRequest(
+            "Nhà phân phối không tồn tại, đã bị xóa hoặc không thuộc tổ chức của thiết bị.");
+    }
+
+    private static DeviceActivityLog CreateCrudLog(Guid deviceId, Guid? userId, string actionType, object detail) => new()
+    {
+        DeviceId = deviceId,
+        UserId = userId,
+        ActionType = actionType,
+        Result = "Thành công",
+        ActionDetail = JsonSerializer.Serialize(detail)
+    };
+
+    private static string? Clean(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static IQueryable<DeviceResponse> Project(IQueryable<Device> query) =>
+        query.Select(x => new DeviceResponse
+        {
+            Id = x.Id,
+            CreatedAt = x.CreatedAt,
+            UpdatedAt = x.UpdatedAt,
+            OrganizationId = x.OrganizationId,
+            FacilityId = x.FacilityId,
+            DeviceCode = x.DeviceCode,
+            DeviceName = x.DeviceName,
+            Description = x.Description,
+            SerialNumber = x.SerialNumber,
+            IpAddress = x.IpAddress,
+            SimPhoneNumber = x.SimPhoneNumber,
+            SimSerialNumber = x.SimSerialNumber,
+            Tag = x.Tag,
+            OsType = x.OsType,
+            VendorName = x.VendorName,
+            DeviceVendorId = x.DeviceVendorId,
+            VendorCode = x.DeviceVendor == null ? null : x.DeviceVendor.VendorCode,
+            DeviceGroupId = x.DeviceGroupId,
+            DeviceGroupName = x.DeviceGroup == null ? null : x.DeviceGroup.GroupName,
+            ActiveStatus = x.ActiveStatus,
+            ConnectionStatus = x.ConnectionStatus,
+            PlayStatus = x.PlayStatus,
+            Volume = x.Volume,
+            ScreenshotUrl = x.ScreenshotUrl,
+            ScreenshotSizeInBytes = x.ScreenshotSizeInBytes,
+            LastScreenshotAt = x.LastScreenshotAt,
+            Latitude = x.Latitude,
+            Longitude = x.Longitude,
+            InstallationAddress = x.InstallationAddress,
+            LastOnlineAt = x.LastOnlineAt,
+            IsActivated = x.IsActivated,
+            ActivatedAt = x.ActivatedAt
+        });
 }

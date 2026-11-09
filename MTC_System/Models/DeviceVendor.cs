@@ -10,11 +10,14 @@ namespace MTC_System.Models
     public class DeviceVendor : BaseEntity
     {
         public Guid? OrganizationId { get; set; }
+        public string VendorCode { get; set; } = string.Empty;
         public string VendorName { get; set; } = string.Empty;
         public string? ContactEmail { get; set; }
         public string? ContactPhone { get; set; }
         public string? Website { get; set; }
         public string? Address { get; set; }
         public bool IsDefault { get; set; } = false;  // true = nhà cung cấp mặc định hệ thống
+
+        public virtual ICollection<Device> Devices { get; set; } = new List<Device>();
     }
 }

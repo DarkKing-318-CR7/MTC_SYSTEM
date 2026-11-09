@@ -91,7 +91,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AuditLogs");
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Broadcast", b =>
@@ -186,7 +186,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("PlaylistId");
 
-                    b.ToTable("Broadcasts");
+                    b.ToTable("Broadcasts", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.BroadcastDevice", b =>
@@ -236,7 +236,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("BroadcastScheduleId", "DeviceId")
                         .IsUnique();
 
-                    b.ToTable("BroadcastDevices");
+                    b.ToTable("BroadcastDevices", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.BroadcastSchedule", b =>
@@ -287,7 +287,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("BroadcastId");
 
-                    b.ToTable("BroadcastSchedules");
+                    b.ToTable("BroadcastSchedules", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.BroadcastTimeSlot", b =>
@@ -327,7 +327,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("BroadcastScheduleId");
 
-                    b.ToTable("BroadcastTimeSlots");
+                    b.ToTable("BroadcastTimeSlots", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Device", b =>
@@ -336,16 +336,25 @@ namespace MTC_System.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ActivationOtp")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("ActivationQrToken")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTimeOffset?>("ActivationTokenExpiry")
+                    b.Property<DateTimeOffset?>("ActivatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ActivationCodeExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ActivationFailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ActivationLockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ActivationOtpHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActivationQrTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<bool>("ActiveStatus")
                         .HasColumnType("boolean");
@@ -363,6 +372,10 @@ namespace MTC_System.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("DeviceCode")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -375,6 +388,19 @@ namespace MTC_System.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset?>("DeviceRefreshTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceRefreshTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("DeviceTokenVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("DeviceVendorId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("FacilityId")
                         .HasColumnType("uuid");
@@ -465,11 +491,16 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("DeviceGroupId");
 
+                    b.HasIndex("DeviceRefreshTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("DeviceVendorId");
+
                     b.HasIndex("FacilityId");
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Devices");
+                    b.ToTable("Devices", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceActivityLog", b =>
@@ -532,7 +563,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("DeviceActivityLogs");
+                    b.ToTable("DeviceActivityLogs", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceErrorCode", b =>
@@ -582,88 +613,88 @@ namespace MTC_System.Migrations
                     b.HasIndex("ErrorCode")
                         .IsUnique();
 
-                    b.ToTable("DeviceErrorCodes");
+                    b.ToTable("DeviceErrorCodes", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = new Guid("eeeeeeee-0001-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4741), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Thiết bị không thể ping đến máy chủ trung tâm trong 3 phút",
-                            ErrorCode = "MTT-001",
-                            ErrorName = "Mất kết nối mạng Internet",
-                            IsDeleted = false,
-                            Severity = "Nghiêm trọng"
-                        },
-                        new
-                        {
-                            Id = new Guid("eeeeeeee-0002-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4745), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Nguồn cấp điện không ổn định hoặc sụt áp",
-                            ErrorCode = "MTT-002",
-                            ErrorName = "Mất nguồn điện / Pin yếu",
-                            IsDeleted = false,
-                            Severity = "Nghiêm trọng"
-                        },
-                        new
-                        {
-                            Id = new Guid("eeeeeeee-0003-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4749), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Không nhận diện được card âm thanh hoặc tín hiệu DAC méo",
-                            ErrorCode = "MTT-003",
-                            ErrorName = "Lỗi phần cứng âm thanh / Loa rè",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thời gian thiết bị sai lệch nhiều so với hệ thống",
+                            ErrorCode = "MTT-CLOCK-001",
+                            ErrorName = "Sai giờ",
                             IsDeleted = false,
                             Severity = "Trung bình"
                         },
                         new
                         {
-                            Id = new Guid("eeeeeeee-0004-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4752), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Màn hình LED/LCD không phản hồi hiển thị",
-                            ErrorCode = "MTT-004",
-                            ErrorName = "Màn hình đen / Không nhận tín hiệu HDMI",
+                            Id = new Guid("eeeeeeee-0002-0000-0000-000000000000"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thiết bị mất kết nối Internet trong khi đang tải tệp",
+                            ErrorCode = "MTT-DOWNLOAD-002",
+                            ErrorName = "Gián đoạn tải",
+                            IsDeleted = false,
+                            Severity = "Trung bình"
+                        },
+                        new
+                        {
+                            Id = new Guid("eeeeeeee-0003-0000-0000-000000000000"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Tải tệp thất bại và thử lại quá 3 lần liên tiếp vẫn không thành công",
+                            ErrorCode = "MTT-DOWNLOAD-003",
+                            ErrorName = "Tải thất bại quá 3 lần",
                             IsDeleted = false,
                             Severity = "Nghiêm trọng"
                         },
                         new
                         {
+                            Id = new Guid("eeeeeeee-0004-0000-0000-000000000000"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Độ phân giải của nội dung phát lớn hơn độ phân giải thiết bị hỗ trợ",
+                            ErrorCode = "MTT-RENDER-004",
+                            ErrorName = "Lỗi hiển thị độ phân giải",
+                            IsDeleted = false,
+                            Severity = "Trung bình"
+                        },
+                        new
+                        {
                             Id = new Guid("eeeeeeee-0005-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4754), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Tệp tin tải về bị hỏng hoặc mã MD5 không khớp",
-                            ErrorCode = "MTT-005",
-                            ErrorName = "Lỗi tải tệp Media / Sai Checksum",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Tải tệp thành công nhưng checksum không khớp",
+                            ErrorCode = "MTT-FILE-005",
+                            ErrorName = "Sai checksum",
                             IsDeleted = false,
                             Severity = "Trung bình"
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-0006-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4756), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Dung lượng đĩa cục bộ không đủ để lưu cache bản tin",
-                            ErrorCode = "MTT-006",
-                            ErrorName = "Bộ nhớ trong đầy (>95%)",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thiết bị không đủ không gian lưu trữ để tải thêm nội dung",
+                            ErrorCode = "MTT-STORAGE-006",
+                            ErrorName = "Đầy bộ nhớ",
                             IsDeleted = false,
-                            Severity = "Trung bình"
+                            Severity = "Nghiêm trọng"
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-0007-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4759), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "Cảm biến nhiệt báo vượt ngưỡng an toàn (>75 độ C)",
-                            ErrorCode = "MTT-007",
-                            ErrorName = "Nhiệt độ CPU / Thiết bị quá cao",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Gói cước của tổ chức đã hết hạn",
+                            ErrorCode = "MTT-ACC-007",
+                            ErrorName = "Tổ chức hết hạn gói",
                             IsDeleted = false,
-                            Severity = "Thấp"
+                            Severity = "Nghiêm trọng"
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-0008-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 819, DateTimeKind.Unspecified).AddTicks(4761), new TimeSpan(0, 0, 0, 0, 0)),
-                            Description = "JWT Token của thiết bị không hợp lệ hoặc đã bị thu hồi",
-                            ErrorCode = "MTT-008",
-                            ErrorName = "Lỗi xác thực Token / Phiên làm việc hết hạn",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Thiết bị mất kết nối Internet",
+                            ErrorCode = "MTT-NETWORK-008",
+                            ErrorName = "Mất kết nối Internet",
                             IsDeleted = false,
-                            Severity = "Trung bình"
+                            Severity = "Nghiêm trọng"
                         });
                 });
 
@@ -712,7 +743,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("DeviceGroups");
+                    b.ToTable("DeviceGroups", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.DevicePlayHistory", b =>
@@ -768,7 +799,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("DeviceId");
 
-                    b.ToTable("DevicePlayHistories");
+                    b.ToTable("DevicePlayHistories", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceVendor", b =>
@@ -810,6 +841,11 @@ namespace MTC_System.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("VendorCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("VendorName")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -821,10 +857,13 @@ namespace MTC_System.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("VendorCode")
+                        .IsUnique();
+
                     b.HasIndex("OrganizationId", "VendorName")
                         .IsUnique();
 
-                    b.ToTable("DeviceVendors");
+                    b.ToTable("DeviceVendors", (string)null);
 
                     b.HasData(
                         new
@@ -833,9 +872,10 @@ namespace MTC_System.Migrations
                             Address = "86/33 Âu Cơ, Phường 9, Quận Tân Bình, TP. Hồ Chí Minh",
                             ContactEmail = "support@altamedia.vn",
                             ContactPhone = "02822432432",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 821, DateTimeKind.Unspecified).AddTicks(8488), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 752, DateTimeKind.Unspecified).AddTicks(4531), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false,
+                            VendorCode = "AltaMedia",
                             VendorName = "Alta Media",
                             Website = "https://altamedia.vn"
                         });
@@ -900,7 +940,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("FacilityId");
 
-                    b.ToTable("EmergencyBroadcasts");
+                    b.ToTable("EmergencyBroadcasts", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Facility", b =>
@@ -952,7 +992,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("Facilities");
+                    b.ToTable("Facilities", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Invoice", b =>
@@ -1033,7 +1073,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("SubscriptionId");
 
-                    b.ToTable("Invoices");
+                    b.ToTable("Invoices", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Media", b =>
@@ -1090,9 +1130,8 @@ namespace MTC_System.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("FrequencyHz")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<decimal?>("FrequencyHz")
+                        .HasColumnType("numeric");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
@@ -1121,6 +1160,17 @@ namespace MTC_System.Migrations
                     b.Property<long>("SizeInBytes")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("File");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1128,8 +1178,8 @@ namespace MTC_System.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Url")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
 
                     b.HasKey("Id");
 
@@ -1139,7 +1189,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Media");
+                    b.ToTable("Media", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.MediaCategory", b =>
@@ -1180,89 +1230,94 @@ namespace MTC_System.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrganizationId", "CategoryName")
-                        .IsUnique();
+                    b.HasIndex("CategoryName")
+                        .IsUnique()
+                        .HasFilter("\"OrganizationId\" IS NULL");
 
-                    b.ToTable("MediaCategories");
+                    b.HasIndex("OrganizationId", "CategoryName")
+                        .IsUnique()
+                        .HasFilter("\"OrganizationId\" IS NOT NULL");
+
+                    b.ToTable("MediaCategories", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = new Guid("cccccccc-0001-0000-0000-000000000000"),
-                            CategoryName = "Chính trị - Xã hội",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(853), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Thông tin và Tin tức",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0002-0000-0000-000000000000"),
-                            CategoryName = "Kinh tế",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(856), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Quảng cáo và Tiếp thị",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0003-0000-0000-000000000000"),
-                            CategoryName = "Văn hóa - Nghệ thuật",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(858), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Giáo dục",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0004-0000-0000-000000000000"),
-                            CategoryName = "Giáo dục",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(861), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Giải trí",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0005-0000-0000-000000000000"),
-                            CategoryName = "Y tế - Sức khỏe",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(863), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Sự kiện và Hội nghị",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0006-0000-0000-000000000000"),
-                            CategoryName = "Thể thao",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(904), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Nghệ thuật và Văn hóa",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0007-0000-0000-000000000000"),
-                            CategoryName = "An ninh - Quốc phòng",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(907), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Du lịch",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0008-0000-0000-000000000000"),
-                            CategoryName = "Khoa học - Công nghệ",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(913), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Sự kiện và Khuyến mãi",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0009-0000-0000-000000000000"),
-                            CategoryName = "Môi trường",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(915), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Giao thông và Đô thị",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
                         new
                         {
                             Id = new Guid("cccccccc-0010-0000-0000-000000000000"),
-                            CategoryName = "Quảng cáo",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(917), new TimeSpan(0, 0, 0, 0, 0)),
+                            CategoryName = "Y tế",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         },
@@ -1270,7 +1325,7 @@ namespace MTC_System.Migrations
                         {
                             Id = new Guid("cccccccc-0011-0000-0000-000000000000"),
                             CategoryName = "Khác",
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 824, DateTimeKind.Unspecified).AddTicks(919), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsDefault = true,
                             IsDeleted = false
                         });
@@ -1282,17 +1337,25 @@ namespace MTC_System.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ChecksumMd5")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ChecksumSha256")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("ChunkSize")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExpectedFileName")
                         .IsRequired()
@@ -1301,6 +1364,9 @@ namespace MTC_System.Migrations
 
                     b.Property<long>("ExpectedFileSize")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FailedReason")
                         .HasMaxLength(500)
@@ -1311,14 +1377,6 @@ namespace MTC_System.Migrations
 
                     b.Property<Guid?>("MediaId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("ChecksumMd5")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ChecksumSha256")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<byte[]>("ReceivedChunksBitmap")
                         .IsRequired()
@@ -1333,9 +1391,6 @@ namespace MTC_System.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
-
-                    b.Property<int>("ChunkSize")
-                        .HasColumnType("integer");
 
                     b.Property<int>("TotalChunks")
                         .HasColumnType("integer");
@@ -1358,7 +1413,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("UploadIdentifier")
                         .IsUnique();
 
-                    b.ToTable("MediaUploadSessions");
+                    b.ToTable("MediaUploadSessions", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Organization", b =>
@@ -1378,7 +1433,7 @@ namespace MTC_System.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("EffectiveDate")
+                    b.Property<DateTimeOffset>("EffectiveDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsDeleted")
@@ -1417,7 +1472,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("OrganizationCode")
                         .IsUnique();
 
-                    b.ToTable("Organizations");
+                    b.ToTable("Organizations", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Package", b =>
@@ -1468,6 +1523,12 @@ namespace MTC_System.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<DateTimeOffset>("RegistrationEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("RegistrationStartsAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1476,16 +1537,22 @@ namespace MTC_System.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("MaxStorageGB")
+                        .IsUnique()
+                        .HasFilter("\"IsCustom\" = false AND \"IsDeleted\" = false");
+
                     b.HasIndex("PackageCode")
                         .IsUnique();
 
-                    b.ToTable("Packages");
+                    b.HasIndex("DurationMonths", "RegistrationStartsAt", "RegistrationEndsAt");
+
+                    b.ToTable("Packages", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = new Guid("ffffffff-0001-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 825, DateTimeKind.Unspecified).AddTicks(3121), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2859), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Dành cho cơ sở quy mô nhỏ, tối đa 5 màn hình/loa, dung lượng 50GB",
                             DurationMonths = 1,
                             IsActive = true,
@@ -1495,12 +1562,14 @@ namespace MTC_System.Migrations
                             MaxStorageGB = 50,
                             PackageCode = "PKG-BASIC",
                             PackageName = "Gói Cơ Bản (Khởi nghiệp)",
-                            PricePerMonth = 500000m
+                            PricePerMonth = 500000m,
+                            RegistrationEndsAt = new DateTimeOffset(new DateTime(2027, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 7, 0, 0, 0)),
+                            RegistrationStartsAt = new DateTimeOffset(new DateTime(2026, 10, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
                         },
                         new
                         {
                             Id = new Guid("ffffffff-0002-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 825, DateTimeKind.Unspecified).AddTicks(3125), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2863), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Dành cho cơ sở quy mô vừa, tối đa 20 màn hình/loa, dung lượng 200GB",
                             DurationMonths = 6,
                             IsActive = true,
@@ -1510,12 +1579,14 @@ namespace MTC_System.Migrations
                             MaxStorageGB = 200,
                             PackageCode = "PKG-STANDARD",
                             PackageName = "Gói Tiêu Chuẩn (Doanh nghiệp)",
-                            PricePerMonth = 1500000m
+                            PricePerMonth = 1500000m,
+                            RegistrationEndsAt = new DateTimeOffset(new DateTime(2027, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 7, 0, 0, 0)),
+                            RegistrationStartsAt = new DateTimeOffset(new DateTime(2026, 10, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
                         },
                         new
                         {
                             Id = new Guid("ffffffff-0003-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 825, DateTimeKind.Unspecified).AddTicks(3129), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2867), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Dành cho chuỗi cơ sở lớn, tối đa 100 màn hình/loa, dung lượng 1000GB (1TB)",
                             DurationMonths = 12,
                             IsActive = true,
@@ -1525,7 +1596,9 @@ namespace MTC_System.Migrations
                             MaxStorageGB = 1000,
                             PackageCode = "PKG-ENTERPRISE",
                             PackageName = "Gói Cao Cấp (Tập đoàn)",
-                            PricePerMonth = 5000000m
+                            PricePerMonth = 5000000m,
+                            RegistrationEndsAt = new DateTimeOffset(new DateTime(2027, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 7, 0, 0, 0)),
+                            RegistrationStartsAt = new DateTimeOffset(new DateTime(2026, 10, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
                         });
                 });
 
@@ -1570,7 +1643,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("PermissionCode")
                         .IsUnique();
 
-                    b.ToTable("Permissions");
+                    b.ToTable("Permissions", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Playlist", b =>
@@ -1628,7 +1701,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Playlists");
+                    b.ToTable("Playlists", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.PlaylistItem", b =>
@@ -1671,7 +1744,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("PlaylistId", "MediaId")
                         .IsUnique();
 
-                    b.ToTable("PlaylistItems");
+                    b.ToTable("PlaylistItems", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.RefreshToken", b =>
@@ -1716,7 +1789,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Role", b =>
@@ -1765,13 +1838,13 @@ namespace MTC_System.Migrations
                     b.HasIndex("RoleCode")
                         .IsUnique();
 
-                    b.ToTable("Roles");
+                    b.ToTable("Roles", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = new Guid("aaaaaaaa-0001-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3686), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6292), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Toàn quyền quản lý hệ thống",
                             IsDeleted = false,
                             RoleCode = "ADMINISTRATOR",
@@ -1780,7 +1853,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("aaaaaaaa-0002-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3690), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6296), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Tạo và quản lý bản tin, media, playlist",
                             IsDeleted = false,
                             RoleCode = "CREATOR",
@@ -1789,7 +1862,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("aaaaaaaa-0003-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3693), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6298), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Quản lý thiết bị và kết nối kỹ thuật",
                             IsDeleted = false,
                             RoleCode = "IT",
@@ -1798,7 +1871,7 @@ namespace MTC_System.Migrations
                         new
                         {
                             Id = new Guid("aaaaaaaa-0004-0000-0000-000000000000"),
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 22, 3, 32, 18, 828, DateTimeKind.Unspecified).AddTicks(3696), new TimeSpan(0, 0, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6300), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Phê duyệt bản tin và media trước khi phát sóng",
                             IsDeleted = false,
                             RoleCode = "APPROVER",
@@ -1840,7 +1913,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("RoleId", "PermissionId")
                         .IsUnique();
 
-                    b.ToTable("RolePermissions");
+                    b.ToTable("RolePermissions", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.SharedMedia", b =>
@@ -1903,7 +1976,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("FromFacilityId", "ToFacilityId", "MediaId")
                         .IsUnique();
 
-                    b.ToTable("SharedMedia");
+                    b.ToTable("SharedMedia", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Subscription", b =>
@@ -1915,6 +1988,11 @@ namespace MTC_System.Migrations
                     b.Property<decimal>("ActualPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("AutoRenew")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1977,7 +2055,95 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("PackageId");
 
-                    b.ToTable("Subscriptions");
+                    b.ToTable("Subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("MTC_System.Models.SubscriptionChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("AmountDue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("BonusDays")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("CustomDurationMonths")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CustomMaxDevices")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CustomPackageName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<decimal?>("CustomPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("CustomStorageGB")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Discount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTimeOffset>("EffectiveAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("NewPackageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NewPackageId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("SubscriptionId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 'Đã đặt' AND \"IsDeleted\" = false");
+
+                    b.ToTable("SubscriptionChanges", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.SystemNotification", b =>
@@ -2044,7 +2210,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("TargetUserId");
 
-                    b.ToTable("SystemNotifications");
+                    b.ToTable("SystemNotifications", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.SystemNotificationRead", b =>
@@ -2084,7 +2250,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("NotificationId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("SystemNotificationReads");
+                    b.ToTable("SystemNotificationReads", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.SystemSetting", b =>
@@ -2131,7 +2297,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("OrganizationId", "SettingKey")
                         .IsUnique();
 
-                    b.ToTable("SystemSettings");
+                    b.ToTable("SystemSettings", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.Template", b =>
@@ -2188,7 +2354,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Templates");
+                    b.ToTable("Templates", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.TemplateZone", b =>
@@ -2246,7 +2412,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("TemplateId");
 
-                    b.ToTable("TemplateZones");
+                    b.ToTable("TemplateZones", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.UpgradePackage", b =>
@@ -2271,6 +2437,13 @@ namespace MTC_System.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<int>("DurationMonths")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -2283,6 +2456,12 @@ namespace MTC_System.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTimeOffset>("SalesEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("SalesStartsAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2299,7 +2478,56 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("PackageId");
 
-                    b.ToTable("UpgradePackages");
+                    b.HasIndex("IsActive", "SalesStartsAt", "SalesEndsAt");
+
+                    b.ToTable("UpgradePackages", (string)null);
+                });
+
+            modelBuilder.Entity("MTC_System.Models.UpgradePurchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("PurchasedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UpgradePackageId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("UpgradePackageId", "OrganizationId");
+
+                    b.ToTable("UpgradePurchases", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.User", b =>
@@ -2389,7 +2617,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.UserRole", b =>
@@ -2426,7 +2654,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("UserId", "RoleId")
                         .IsUnique();
 
-                    b.ToTable("UserRoles");
+                    b.ToTable("UserRoles", (string)null);
                 });
 
             modelBuilder.Entity("MTC_System.Models.AuditLog", b =>
@@ -2512,6 +2740,11 @@ namespace MTC_System.Migrations
                         .HasForeignKey("DeviceGroupId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("MTC_System.Models.DeviceVendor", "DeviceVendor")
+                        .WithMany("Devices")
+                        .HasForeignKey("DeviceVendorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MTC_System.Models.Facility", null)
                         .WithMany()
                         .HasForeignKey("FacilityId")
@@ -2525,6 +2758,8 @@ namespace MTC_System.Migrations
                         .IsRequired();
 
                     b.Navigation("DeviceGroup");
+
+                    b.Navigation("DeviceVendor");
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceActivityLog", b =>
@@ -2758,6 +2993,26 @@ namespace MTC_System.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("MTC_System.Models.SubscriptionChange", b =>
+                {
+                    b.HasOne("MTC_System.Models.Package", null)
+                        .WithMany()
+                        .HasForeignKey("NewPackageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MTC_System.Models.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MTC_System.Models.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MTC_System.Models.SystemNotification", b =>
                 {
                     b.HasOne("MTC_System.Models.Facility", null)
@@ -2833,6 +3088,26 @@ namespace MTC_System.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MTC_System.Models.UpgradePurchase", b =>
+                {
+                    b.HasOne("MTC_System.Models.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MTC_System.Models.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MTC_System.Models.UpgradePackage", null)
+                        .WithMany()
+                        .HasForeignKey("UpgradePackageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MTC_System.Models.User", b =>
                 {
                     b.HasOne("MTC_System.Models.Facility", null)
@@ -2874,6 +3149,11 @@ namespace MTC_System.Migrations
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceGroup", b =>
+                {
+                    b.Navigation("Devices");
+                });
+
+            modelBuilder.Entity("MTC_System.Models.DeviceVendor", b =>
                 {
                     b.Navigation("Devices");
                 });

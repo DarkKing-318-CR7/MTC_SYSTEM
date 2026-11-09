@@ -1,4 +1,5 @@
 using System;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
@@ -58,6 +59,9 @@ builder.Services.AddDbContext<MyDbContext>(options =>
 var jwtSecretKey = builder.Configuration["Jwt:SecretKey"] ?? "MTC_SYSTEM_SUPER_SECRET_KEY_FOR_JWT_SECURITY_2026_@_LONG_ENOUGH_KEY";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MTC_Backend";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MTC_Clients";
+var deviceJwtSecretKey = builder.Configuration["DeviceJwt:SecretKey"] ?? jwtSecretKey;
+var deviceJwtIssuer = builder.Configuration["DeviceJwt:Issuer"] ?? "MTC_DeviceGateway";
+var deviceJwtAudience = builder.Configuration["DeviceJwt:Audience"] ?? "MTC_Devices";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -79,9 +83,87 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+})
+.AddJwtBearer("DeviceBearer", options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(deviceJwtSecretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = deviceJwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = deviceJwtAudience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/device"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var deviceIdValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var versionValue = context.Principal?.FindFirstValue("token_version");
+            if (!Guid.TryParse(deviceIdValue, out var deviceId) || !int.TryParse(versionValue, out var tokenVersion))
+            {
+                context.Fail("Device Token không hợp lệ.");
+                return;
+            }
+
+            var dbContext = context.HttpContext.RequestServices.GetRequiredService<MyDbContext>();
+            var valid = await dbContext.Devices.AsNoTracking().AnyAsync(
+                x => x.Id == deviceId &&
+                     !x.IsDeleted &&
+                     x.ActiveStatus &&
+                     x.IsActivated &&
+                     x.DeviceTokenVersion == tokenVersion,
+                context.HttpContext.RequestAborted);
+            if (!valid)
+                context.Fail("Device Token đã bị thu hồi hoặc thiết bị đã bị khóa.");
+        }
+    };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("DeviceView", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+    });
+
+    options.AddPolicy("DeviceManage", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("ADMINISTRATOR", "Administrator", "IT");
+    });
+
+    options.AddPolicy("DeviceControl", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("ADMINISTRATOR", "Administrator", "IT");
+    });
+
+    options.AddPolicy("DeviceAdminOnly", policy =>
+    {
+        policy.AuthenticationSchemes.Add(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("ADMINISTRATOR", "Administrator");
+    });
+});
 
 // 4. Đăng ký Services (Dependency Injection)
 // [Dev 1]
@@ -92,9 +174,13 @@ builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IFacilityService, FacilityService>();
 builder.Services.AddScoped<IPackageService, PackageService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<UpgradePackageService>();
+builder.Services.AddScoped<PackageChangeService>();
 
 // [Dev 2]
 builder.Services.AddScoped<IChunkedMediaUploadSvc, ChunkedMediaUploadSvc>();
+builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<IMediaCategoryService, MediaCategoryService>();
 
 // [Dev 3]
 builder.Services.AddScoped<IBroadcastService, BroadcastService>();
@@ -107,14 +193,27 @@ builder.Services.AddScoped<IDeviceVendorService, DeviceVendorService>();
 builder.Services.AddScoped<IDeviceErrorCodeService, DeviceErrorCodeService>();
 builder.Services.AddScoped<IDeviceActivityLogService, DeviceActivityLogService>();
 builder.Services.AddScoped<IDevicePlayHistoryService, DevicePlayHistoryService>();
+builder.Services.AddScoped<IDeviceActivationService, DeviceActivationService>();
+
+// SignalR & Realtime Connection Manager
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<MTC_System.Realtime.IDeviceConnectionManager, MTC_System.Realtime.DeviceConnectionManager>();
+builder.Services.AddSingleton<MTC_System.Realtime.IDeviceCommandManager, MTC_System.Realtime.DeviceCommandManager>();
+builder.Services.AddSingleton<MTC_System.Realtime.IDispatchOccurrenceManager, MTC_System.Realtime.DispatchOccurrenceManager>();
+builder.Services.AddScoped<MTC_System.Realtime.IBroadcastRealtimeDispatcher, MTC_System.Realtime.BroadcastRealtimeDispatcher>();
+
+// Background Hosted Services (Heartbeat Timeout Monitor & Broadcast Scheduler)
+builder.Services.AddSingleton<MTC_System.Realtime.DeviceHeartbeatMonitorHostedService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MTC_System.Realtime.DeviceHeartbeatMonitorHostedService>());
+builder.Services.AddHostedService<MTC_System.Realtime.BroadcastSchedulerHostedService>();
 
 // 5. Swagger UI với nút ổ khóa nhập Bearer Token
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "MTC System API", 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "MTC System API",
         Version = "v1",
         Description = "Hệ thống Quản trị & Điều hành Màn hình / Loa tập trung (MTC Backend)"
     });
@@ -155,6 +254,7 @@ app.UseExceptionHandler(errorApp =>
         var statusCode = exception switch
         {
             DeviceModuleException deviceException => deviceException.StatusCode,
+            MediaModuleException mediaException => mediaException.StatusCode,
             DbUpdateException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };
@@ -162,6 +262,7 @@ app.UseExceptionHandler(errorApp =>
         var message = exception switch
         {
             DeviceModuleException deviceException => deviceException.Message,
+            MediaModuleException mediaException => mediaException.Message,
             DbUpdateException => "Dữ liệu xung đột với ràng buộc của cơ sở dữ liệu.",
             _ => "Đã xảy ra lỗi trong quá trình xử lý yêu cầu."
         };
@@ -184,6 +285,14 @@ app.UseCors("AllowFrontend");
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
+}
+
+// Cấu hình Static Files cho web wwwroot (không public thư mục /storage để bảo vệ media theo tổ chức)
+app.UseStaticFiles();
+var storagePath = Path.Combine(app.Environment.ContentRootPath, app.Configuration["MediaUpload:StorageRoot"] ?? "storage");
+if (!Directory.Exists(storagePath))
+{
+    Directory.CreateDirectory(storagePath);
 }
 
 // BẮT BUỘC: UseAuthentication phải đứng TRƯỚC UseAuthorization
@@ -293,5 +402,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
+app.MapHub<MTC_System.Hubs.DeviceHub>("/hubs/device");
 
 app.Run();
+
+public partial class Program { }

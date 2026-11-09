@@ -18,6 +18,10 @@
 
         public int DurationMonths { get; set; }
 
+        public DateTimeOffset RegistrationStartsAt { get; set; }
+        public DateTimeOffset RegistrationEndsAt { get; set; }
+        public string Status { get; set; } = string.Empty;
+
         public bool IsActive { get; set; }
 
         public bool IsCustom { get; set; }
