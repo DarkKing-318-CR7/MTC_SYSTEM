@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MTC_System.Common;
 using MTC_System.DTOs.DevicePlayHistories;
@@ -7,6 +8,7 @@ namespace MTC_System.Controllers;
 
 [ApiController]
 [Route("api/device-play-histories")]
+[Authorize(Policy = "DeviceView")]
 public sealed class DevicePlayHistoriesController : ControllerBase
 {
     private readonly IDevicePlayHistoryService _service;
@@ -20,18 +22,21 @@ public sealed class DevicePlayHistoriesController : ControllerBase
         [FromQuery] string? result,
         CancellationToken cancellationToken)
     {
-        var data = await _service.GetAllAsync(deviceId, broadcastId, result, cancellationToken);
+        var scope = User.GetUserScope();
+        var data = await _service.GetAllAsync(scope, deviceId, broadcastId, result, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<DevicePlayHistoryResponse>>.Ok(data));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<DevicePlayHistoryResponse>>> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var data = await _service.GetByIdAsync(id, cancellationToken);
+        var scope = User.GetUserScope();
+        var data = await _service.GetByIdAsync(id, scope, cancellationToken);
         return Ok(ApiResponse<DevicePlayHistoryResponse>.Ok(data));
     }
 
     [HttpPost]
+    [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DevicePlayHistoryResponse>>> Create(
         [FromBody] CreateDevicePlayHistoryRequest request,
         CancellationToken cancellationToken)
@@ -41,6 +46,7 @@ public sealed class DevicePlayHistoriesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DevicePlayHistoryResponse>>> Update(
         Guid id,
         [FromBody] UpdateDevicePlayHistoryRequest request,
@@ -51,6 +57,7 @@ public sealed class DevicePlayHistoriesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id, CancellationToken cancellationToken)
     {
         await _service.DeleteAsync(id, cancellationToken);

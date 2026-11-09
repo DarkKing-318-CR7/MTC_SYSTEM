@@ -47,7 +47,7 @@ namespace MTC_System.Data.Configurations
                     RoleName = "Quản trị viên",
                     Description = "Toàn quyền quản lý hệ thống",
                     OrganizationId = null,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6292), TimeSpan.Zero)
                 },
                 new Role
                 {
@@ -56,7 +56,7 @@ namespace MTC_System.Data.Configurations
                     RoleName = "Người tạo nội dung",
                     Description = "Tạo và quản lý bản tin, media, playlist",
                     OrganizationId = null,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6296), TimeSpan.Zero)
                 },
                 new Role
                 {
@@ -65,7 +65,7 @@ namespace MTC_System.Data.Configurations
                     RoleName = "Kỹ thuật viên",
                     Description = "Quản lý thiết bị và kết nối kỹ thuật",
                     OrganizationId = null,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6298), TimeSpan.Zero)
                 },
                 new Role
                 {
@@ -74,7 +74,7 @@ namespace MTC_System.Data.Configurations
                     RoleName = "Người phê duyệt",
                     Description = "Phê duyệt bản tin và media trước khi phát sóng",
                     OrganizationId = null,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 758, DateTimeKind.Unspecified).AddTicks(6300), TimeSpan.Zero)
                 }
             );
         }

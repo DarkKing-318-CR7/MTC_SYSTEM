@@ -13,6 +13,9 @@ public class CreateDeviceRequest
     [Required, StringLength(255)]
     public string DeviceName { get; set; } = string.Empty;
 
+    [StringLength(1000)]
+    public string? Description { get; set; }
+
     [StringLength(100)]
     public string? SerialNumber { get; set; }
 
@@ -33,6 +36,8 @@ public class CreateDeviceRequest
 
     [StringLength(100)]
     public string? VendorName { get; set; }
+
+    public Guid? DeviceVendorId { get; set; }
 
     public Guid? DeviceGroupId { get; set; }
     public bool ActiveStatus { get; set; } = true;
@@ -66,7 +71,6 @@ public class UpdateDeviceRequest : CreateDeviceRequest
     [Required, StringLength(50)]
     public string PlayStatus { get; set; } = "Dừng phát bản tin";
 
-    public bool IsActivated { get; set; }
     public DateTimeOffset? LastOnlineAt { get; set; }
 }
 
@@ -77,6 +81,7 @@ public class DeviceResponse
     public Guid FacilityId { get; set; }
     public string DeviceCode { get; set; } = string.Empty;
     public string DeviceName { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public string? SerialNumber { get; set; }
     public string? IpAddress { get; set; }
     public string? SimPhoneNumber { get; set; }
@@ -84,6 +89,8 @@ public class DeviceResponse
     public string? Tag { get; set; }
     public string OsType { get; set; } = string.Empty;
     public string? VendorName { get; set; }
+    public Guid? DeviceVendorId { get; set; }
+    public string? VendorCode { get; set; }
     public Guid? DeviceGroupId { get; set; }
     public string? DeviceGroupName { get; set; }
     public bool ActiveStatus { get; set; }
@@ -99,7 +106,23 @@ public class DeviceResponse
     public bool IsActivated { get; set; }
     public bool HasPendingActivation { get; set; }
     public DateTimeOffset? ActivationTokenExpiry { get; set; }
+    public DateTimeOffset? ActivatedAt { get; set; }
     public DateTimeOffset? LastOnlineAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+}
+
+public sealed class DeviceMapItemResponse
+{
+    public Guid DeviceId { get; set; }
+    public string DeviceCode { get; set; } = string.Empty;
+    public string DeviceName { get; set; } = string.Empty;
+    public Guid OrganizationId { get; set; }
+    public Guid FacilityId { get; set; }
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string? InstallationAddress { get; set; }
+    public string ConnectionStatus { get; set; } = string.Empty;
+    public string PlayStatus { get; set; } = string.Empty;
+    public DateTimeOffset? LastOnlineAt { get; set; }
 }

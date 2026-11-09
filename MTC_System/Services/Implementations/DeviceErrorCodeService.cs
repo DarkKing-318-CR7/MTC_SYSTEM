@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MTC_System.Common;
 using MTC_System.Data;
 using MTC_System.DTOs.DeviceErrorCodes;
 using MTC_System.Models;
@@ -35,8 +36,11 @@ public sealed class DeviceErrorCodeService : IDeviceErrorCodeService
         return Map(entity);
     }
 
-    public async Task<DeviceErrorCodeResponse> CreateAsync(CreateDeviceErrorCodeRequest request, CancellationToken cancellationToken)
+    public async Task<DeviceErrorCodeResponse> CreateAsync(CreateDeviceErrorCodeRequest request, UserScopeContext context, CancellationToken cancellationToken)
     {
+        if (!context.IsSystemAdministrator)
+            throw DeviceModuleException.Forbidden("Chỉ Quản trị viên hệ thống mới có quyền tạo mã lỗi (Fail-Closed).");
+
         var code = request.ErrorCode.Trim().ToUpperInvariant();
         await EnsureUniqueCodeAsync(code, null, cancellationToken);
 
@@ -52,8 +56,11 @@ public sealed class DeviceErrorCodeService : IDeviceErrorCodeService
         return Map(entity);
     }
 
-    public async Task<DeviceErrorCodeResponse> UpdateAsync(Guid id, UpdateDeviceErrorCodeRequest request, CancellationToken cancellationToken)
+    public async Task<DeviceErrorCodeResponse> UpdateAsync(Guid id, UpdateDeviceErrorCodeRequest request, UserScopeContext context, CancellationToken cancellationToken)
     {
+        if (!context.IsSystemAdministrator)
+            throw DeviceModuleException.Forbidden("Chỉ Quản trị viên hệ thống mới có quyền cập nhật mã lỗi (Fail-Closed).");
+
         var entity = await _context.DeviceErrorCodes.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
             ?? throw DeviceModuleException.NotFound("Không tìm thấy mã lỗi thiết bị.");
 
@@ -69,8 +76,11 @@ public sealed class DeviceErrorCodeService : IDeviceErrorCodeService
         return Map(entity);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken)
     {
+        if (!context.IsSystemAdministrator)
+            throw DeviceModuleException.Forbidden("Chỉ Quản trị viên hệ thống mới có quyền xóa mã lỗi (Fail-Closed).");
+
         var entity = await _context.DeviceErrorCodes.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
             ?? throw DeviceModuleException.NotFound("Không tìm thấy mã lỗi thiết bị.");
         entity.IsDeleted = true;

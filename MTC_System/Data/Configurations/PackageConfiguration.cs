@@ -38,7 +38,7 @@ namespace MTC_System.Data.Configurations
                     RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2859), TimeSpan.Zero)
                 },
                 new Package
                 {
@@ -54,7 +54,7 @@ namespace MTC_System.Data.Configurations
                     RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2863), TimeSpan.Zero)
                 },
                 new Package
                 {
@@ -70,7 +70,7 @@ namespace MTC_System.Data.Configurations
                     RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2867), TimeSpan.Zero)
                 }
             );
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MTC_System.Models;
@@ -12,6 +12,8 @@ namespace MTC_System.Data.Configurations
         {
             builder.HasKey(v => v.Id);
 
+            builder.Property(v => v.VendorCode).IsRequired().HasMaxLength(50);
+            builder.HasIndex(v => v.VendorCode).IsUnique();
             builder.Property(v => v.VendorName).IsRequired().HasMaxLength(255);
             builder.Property(v => v.ContactEmail).HasMaxLength(255);
             builder.Property(v => v.ContactPhone).HasMaxLength(20);
@@ -30,17 +32,19 @@ namespace MTC_System.Data.Configurations
                    .IsRequired(false);
 
             // SEED: Nhà phân phối mặc định toàn hệ thống Alta Media
+            var seedCreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 752, DateTimeKind.Unspecified).AddTicks(4531), TimeSpan.Zero);
             builder.HasData(
                 new DeviceVendor
                 {
                     Id = Guid.Parse("dddddddd-0001-0000-0000-000000000000"),
+                    VendorCode = "AltaMedia",
                     VendorName = "Alta Media",
                     ContactEmail = "support@altamedia.vn",
                     ContactPhone = "02822432432",
                     Website = "https://altamedia.vn",
                     Address = "86/33 Âu Cơ, Phường 9, Quận Tân Bình, TP. Hồ Chí Minh",
                     IsDefault = true,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = seedCreatedAt
                 }
             );
         }
