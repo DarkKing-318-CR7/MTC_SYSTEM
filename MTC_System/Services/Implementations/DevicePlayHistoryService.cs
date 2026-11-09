@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MTC_System.Common;
 using MTC_System.Data;
 using MTC_System.DTOs.DevicePlayHistories;
 using MTC_System.Models;
@@ -13,27 +14,73 @@ public sealed class DevicePlayHistoryService : IDevicePlayHistoryService
     public DevicePlayHistoryService(MyDbContext context) => _context = context;
 
     public async Task<IReadOnlyList<DevicePlayHistoryResponse>> GetAllAsync(
+        UserScopeContext context,
         Guid? deviceId,
         Guid? broadcastId,
         string? result,
         CancellationToken cancellationToken)
     {
-        var histories = _context.DevicePlayHistories.AsNoTracking().Where(x => !x.IsDeleted);
-        if (deviceId.HasValue)
-            histories = histories.Where(x => x.DeviceId == deviceId.Value);
-        if (broadcastId.HasValue)
-            histories = histories.Where(x => x.BroadcastId == broadcastId.Value);
-        if (!string.IsNullOrWhiteSpace(result))
-            histories = histories.Where(x => x.PlayResult == result.Trim());
+        context.EnsureCanAccess();
 
-        return await Project(histories).OrderByDescending(x => x.StartedAt).ToListAsync(cancellationToken);
+        var query = from hist in _context.DevicePlayHistories.AsNoTracking().Where(x => !x.IsDeleted)
+                    join dev in _context.Devices.AsNoTracking().Where(x => !x.IsDeleted) on hist.DeviceId equals dev.Id
+                    select new { hist, dev };
+
+        if (!context.IsSystemAdministrator)
+        {
+            query = query.Where(x => x.dev.OrganizationId == context.OrganizationId!.Value);
+            if (context.FacilityId.HasValue)
+                query = query.Where(x => x.dev.FacilityId == context.FacilityId.Value);
+        }
+
+        if (deviceId.HasValue)
+            query = query.Where(x => x.hist.DeviceId == deviceId.Value);
+        if (broadcastId.HasValue)
+            query = query.Where(x => x.hist.BroadcastId == broadcastId.Value);
+        if (!string.IsNullOrWhiteSpace(result))
+            query = query.Where(x => x.hist.PlayResult == result.Trim());
+
+        return await query
+            .OrderByDescending(x => x.hist.StartedAt)
+            .Select(x => new DevicePlayHistoryResponse
+            {
+                Id = x.hist.Id,
+                DeviceId = x.hist.DeviceId,
+                BroadcastId = x.hist.BroadcastId,
+                BroadcastScheduleId = x.hist.BroadcastScheduleId,
+                StartedAt = x.hist.StartedAt,
+                EndedAt = x.hist.EndedAt,
+                PlayResult = x.hist.PlayResult,
+                Notes = x.hist.Notes,
+                CreatedAt = x.hist.CreatedAt,
+                UpdatedAt = x.hist.UpdatedAt
+            })
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<DevicePlayHistoryResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<DevicePlayHistoryResponse> GetByIdAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken)
     {
-        var result = await Project(_context.DevicePlayHistories.AsNoTracking().Where(x => x.Id == id && !x.IsDeleted))
-            .FirstOrDefaultAsync(cancellationToken);
-        return result ?? throw DeviceModuleException.NotFound("Không tìm thấy lịch sử phát của thiết bị.");
+        var item = await (from hist in _context.DevicePlayHistories.AsNoTracking().Where(x => x.Id == id && !x.IsDeleted)
+                          join dev in _context.Devices.AsNoTracking().Where(x => !x.IsDeleted) on hist.DeviceId equals dev.Id
+                          select new { hist, dev })
+                          .FirstOrDefaultAsync(cancellationToken)
+                          ?? throw DeviceModuleException.NotFound("Không tìm thấy lịch sử phát của thiết bị.");
+
+        context.ValidateScope(item.dev.OrganizationId, item.dev.FacilityId);
+
+        return new DevicePlayHistoryResponse
+        {
+            Id = item.hist.Id,
+            DeviceId = item.hist.DeviceId,
+            BroadcastId = item.hist.BroadcastId,
+            BroadcastScheduleId = item.hist.BroadcastScheduleId,
+            StartedAt = item.hist.StartedAt,
+            EndedAt = item.hist.EndedAt,
+            PlayResult = item.hist.PlayResult,
+            Notes = item.hist.Notes,
+            CreatedAt = item.hist.CreatedAt,
+            UpdatedAt = item.hist.UpdatedAt
+        };
     }
 
     public async Task<DevicePlayHistoryResponse> CreateAsync(CreateDevicePlayHistoryRequest request, CancellationToken cancellationToken)
@@ -52,7 +99,7 @@ public sealed class DevicePlayHistoryService : IDevicePlayHistoryService
 
         _context.DevicePlayHistories.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(entity.Id, cancellationToken);
+        return ProjectSingle(entity);
     }
 
     public async Task<DevicePlayHistoryResponse> UpdateAsync(Guid id, UpdateDevicePlayHistoryRequest request, CancellationToken cancellationToken)
@@ -71,7 +118,7 @@ public sealed class DevicePlayHistoryService : IDevicePlayHistoryService
         entity.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(id, cancellationToken);
+        return ProjectSingle(entity);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -103,34 +150,27 @@ public sealed class DevicePlayHistoryService : IDevicePlayHistoryService
         if (request.BroadcastScheduleId.HasValue)
         {
             var scheduleExists = await _context.BroadcastSchedules.AnyAsync(
-                x => x.Id == request.BroadcastScheduleId && x.BroadcastId == request.BroadcastId && !x.IsDeleted,
+                x => x.Id == request.BroadcastScheduleId.Value && x.BroadcastId == request.BroadcastId && !x.IsDeleted,
                 cancellationToken);
             if (!scheduleExists)
-                throw DeviceModuleException.BadRequest("BroadcastScheduleId không tồn tại hoặc không thuộc bản tin đã chọn.");
+                throw DeviceModuleException.BadRequest("BroadcastScheduleId không tồn tại hoặc không khớp với bản tin.");
         }
     }
 
-    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? Clean(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private IQueryable<DevicePlayHistoryResponse> Project(IQueryable<DevicePlayHistory> histories) =>
-        from history in histories
-        join device in _context.Devices.AsNoTracking() on history.DeviceId equals device.Id
-        join broadcast in _context.Broadcasts.AsNoTracking() on history.BroadcastId equals broadcast.Id
-        select new DevicePlayHistoryResponse
-        {
-            Id = history.Id,
-            DeviceId = history.DeviceId,
-            DeviceCode = device.DeviceCode,
-            DeviceName = device.DeviceName,
-            BroadcastId = history.BroadcastId,
-            BroadcastCode = broadcast.BroadcastCode,
-            BroadcastName = broadcast.BroadcastName,
-            BroadcastScheduleId = history.BroadcastScheduleId,
-            StartedAt = history.StartedAt,
-            EndedAt = history.EndedAt,
-            PlayResult = history.PlayResult,
-            Notes = history.Notes,
-            CreatedAt = history.CreatedAt,
-            UpdatedAt = history.UpdatedAt
-        };
+    private static DevicePlayHistoryResponse ProjectSingle(DevicePlayHistory x) => new()
+    {
+        Id = x.Id,
+        DeviceId = x.DeviceId,
+        BroadcastId = x.BroadcastId,
+        BroadcastScheduleId = x.BroadcastScheduleId,
+        StartedAt = x.StartedAt,
+        EndedAt = x.EndedAt,
+        PlayResult = x.PlayResult,
+        Notes = x.Notes,
+        CreatedAt = x.CreatedAt,
+        UpdatedAt = x.UpdatedAt
+    };
 }

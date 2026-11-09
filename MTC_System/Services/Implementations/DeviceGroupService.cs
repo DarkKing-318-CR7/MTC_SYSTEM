@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MTC_System.Common;
 using MTC_System.Data;
 using MTC_System.DTOs.DeviceGroups;
 using MTC_System.Models;
@@ -13,11 +14,30 @@ public sealed class DeviceGroupService : IDeviceGroupService
     public DeviceGroupService(MyDbContext context) => _context = context;
 
     public async Task<IReadOnlyList<DeviceGroupResponse>> GetAllAsync(
+        UserScopeContext context,
         Guid? organizationId,
         Guid? facilityId,
         string? search,
         CancellationToken cancellationToken)
     {
+        context.EnsureCanAccess();
+
+        if (!context.IsSystemAdministrator)
+        {
+            if (organizationId.HasValue && organizationId.Value != context.OrganizationId!.Value)
+                throw DeviceModuleException.Forbidden("Không được phép truy vấn dữ liệu của tổ chức khác (Fail-Closed).");
+
+            organizationId = context.OrganizationId;
+
+            if (context.FacilityId.HasValue)
+            {
+                if (facilityId.HasValue && facilityId.Value != context.FacilityId.Value)
+                    throw DeviceModuleException.Forbidden("Không được phép truy vấn dữ liệu của cơ sở khác (Fail-Closed).");
+
+                facilityId = context.FacilityId;
+            }
+        }
+
         var query = _context.DeviceGroups.AsNoTracking().Where(x => !x.IsDeleted);
 
         if (organizationId.HasValue)
@@ -48,8 +68,14 @@ public sealed class DeviceGroupService : IDeviceGroupService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<DeviceGroupResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<DeviceGroupResponse> GetByIdAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken)
     {
+        var group = await _context.DeviceGroups.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
+            ?? throw DeviceModuleException.NotFound("Không tìm thấy nhóm thiết bị.");
+
+        context.ValidateScope(group.OrganizationId, group.FacilityId);
+
         var result = await _context.DeviceGroups
             .AsNoTracking()
             .Where(x => x.Id == id && !x.IsDeleted)
@@ -67,11 +93,14 @@ public sealed class DeviceGroupService : IDeviceGroupService
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return result ?? throw DeviceModuleException.NotFound("Không tìm thấy nhóm thiết bị.");
+        return result!;
     }
 
-    public async Task<DeviceGroupResponse> CreateAsync(CreateDeviceGroupRequest request, CancellationToken cancellationToken)
+    public async Task<DeviceGroupResponse> CreateAsync(CreateDeviceGroupRequest request, UserScopeContext context, CancellationToken cancellationToken)
     {
+        context.EnsureCanAccess();
+        context.ValidateScope(request.OrganizationId, request.FacilityId);
+
         await ValidateScopeAsync(request.OrganizationId, request.FacilityId, cancellationToken);
         await EnsureUniqueNameAsync(request.GroupName, request.OrganizationId, request.FacilityId, null, cancellationToken);
 
@@ -86,18 +115,24 @@ public sealed class DeviceGroupService : IDeviceGroupService
 
         _context.DeviceGroups.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(entity.Id, cancellationToken);
+        return await GetByIdAsync(entity.Id, context, cancellationToken);
     }
 
-    public async Task<DeviceGroupResponse> UpdateAsync(Guid id, UpdateDeviceGroupRequest request, CancellationToken cancellationToken)
+    public async Task<DeviceGroupResponse> UpdateAsync(Guid id, UpdateDeviceGroupRequest request, UserScopeContext context, CancellationToken cancellationToken)
     {
         var entity = await _context.DeviceGroups.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
             ?? throw DeviceModuleException.NotFound("Không tìm thấy nhóm thiết bị.");
 
+        context.ValidateScope(entity.OrganizationId, entity.FacilityId);
+
+        if (request.OrganizationId != entity.OrganizationId)
+            throw DeviceModuleException.BadRequest("Không được phép thay đổi OrganizationId của nhóm thiết bị.");
+
+        context.ValidateScope(request.OrganizationId, request.FacilityId);
+
         await ValidateScopeAsync(request.OrganizationId, request.FacilityId, cancellationToken);
         await EnsureUniqueNameAsync(request.GroupName, request.OrganizationId, request.FacilityId, id, cancellationToken);
 
-        entity.OrganizationId = request.OrganizationId;
         entity.FacilityId = request.FacilityId;
         entity.GroupName = request.GroupName.Trim();
         entity.Description = request.Description?.Trim();
@@ -105,23 +140,21 @@ public sealed class DeviceGroupService : IDeviceGroupService
         entity.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetByIdAsync(id, cancellationToken);
+        return await GetByIdAsync(id, context, cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, UserScopeContext context, CancellationToken cancellationToken)
     {
-        var entity = await _context.DeviceGroups.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
+        var entity = await _context.DeviceGroups
+            .Include(x => x.Devices)
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken)
             ?? throw DeviceModuleException.NotFound("Không tìm thấy nhóm thiết bị.");
 
-        var devices = await _context.Devices
-            .Where(x => x.DeviceGroupId == id && !x.IsDeleted)
-            .ToListAsync(cancellationToken);
+        context.ValidateScope(entity.OrganizationId, entity.FacilityId);
 
-        foreach (var device in devices)
-        {
-            device.DeviceGroupId = null;
-            device.UpdatedAt = DateTimeOffset.UtcNow;
-        }
+        var hasDevices = entity.Devices.Any(d => !d.IsDeleted);
+        if (hasDevices)
+            throw DeviceModuleException.Conflict("Không thể xóa nhóm đang có thiết bị hoạt động.");
 
         entity.IsDeleted = true;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
@@ -133,7 +166,9 @@ public sealed class DeviceGroupService : IDeviceGroupService
         if (organizationId == Guid.Empty || facilityId == Guid.Empty)
             throw DeviceModuleException.BadRequest("OrganizationId và FacilityId là bắt buộc.");
 
-        var organizationExists = await _context.Organizations.AnyAsync(x => x.Id == organizationId && !x.IsDeleted, cancellationToken);
+        var organizationExists = await _context.Organizations.AnyAsync(
+            x => x.Id == organizationId && !x.IsDeleted,
+            cancellationToken);
         if (!organizationExists)
             throw DeviceModuleException.BadRequest("OrganizationId không tồn tại.");
 
@@ -145,22 +180,22 @@ public sealed class DeviceGroupService : IDeviceGroupService
     }
 
     private async Task EnsureUniqueNameAsync(
-        string name,
+        string groupName,
         Guid organizationId,
         Guid facilityId,
-        Guid? ignoredId,
+        Guid? currentId,
         CancellationToken cancellationToken)
     {
-        var normalized = name.Trim().ToLower();
-        var duplicated = await _context.DeviceGroups.AnyAsync(
-            x => !x.IsDeleted &&
-                 x.OrganizationId == organizationId &&
+        var normalized = groupName.Trim().ToLower();
+        var isDuplicate = await _context.DeviceGroups.AnyAsync(
+            x => x.OrganizationId == organizationId &&
                  x.FacilityId == facilityId &&
                  x.GroupName.ToLower() == normalized &&
-                 (!ignoredId.HasValue || x.Id != ignoredId.Value),
+                 (!currentId.HasValue || x.Id != currentId.Value) &&
+                 !x.IsDeleted,
             cancellationToken);
 
-        if (duplicated)
-            throw DeviceModuleException.Conflict("Tên nhóm thiết bị đã tồn tại trong cơ sở.");
+        if (isDuplicate)
+            throw DeviceModuleException.Conflict("Tên nhóm thiết bị đã tồn tại trong cơ sở này.");
     }
 }

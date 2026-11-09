@@ -6,6 +6,9 @@ public class CreateDeviceVendorRequest
 {
     public Guid? OrganizationId { get; set; }
 
+    [Required, StringLength(50)]
+    public string VendorCode { get; set; } = string.Empty;
+
     [Required, StringLength(255)]
     public string VendorName { get; set; } = string.Empty;
 
@@ -30,6 +33,7 @@ public class DeviceVendorResponse
 {
     public Guid Id { get; set; }
     public Guid? OrganizationId { get; set; }
+    public string VendorCode { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
