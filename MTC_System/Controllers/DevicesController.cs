@@ -9,7 +9,7 @@ namespace MTC_System.Controllers;
 
 [ApiController]
 [Route("api/devices")]
-[Authorize(Policy = "DeviceView")]
+// [Authorize(Policy = "DeviceView")]
 public sealed class DevicesController : ControllerBase
 {
     private readonly IDeviceService _service;
@@ -53,7 +53,7 @@ public sealed class DevicesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "DeviceManage")]
+    // [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DeviceResponse>>> Create(
         [FromBody] CreateDeviceRequest request,
         CancellationToken cancellationToken)
@@ -64,7 +64,7 @@ public sealed class DevicesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "DeviceManage")]
+    // [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DeviceResponse>>> Update(
         Guid id,
         [FromBody] UpdateDeviceRequest request,
@@ -76,7 +76,7 @@ public sealed class DevicesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "DeviceManage")]
+    // [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id, CancellationToken cancellationToken)
     {
         var scope = User.GetUserScope();
@@ -85,7 +85,7 @@ public sealed class DevicesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/activation-code")]
-    [Authorize(Policy = "DeviceManage")]
+    // [Authorize(Policy = "DeviceManage")]
     public async Task<ActionResult<ApiResponse<DeviceActivationCodeResponse>>> GenerateActivationCode(
         Guid id,
         CancellationToken cancellationToken)

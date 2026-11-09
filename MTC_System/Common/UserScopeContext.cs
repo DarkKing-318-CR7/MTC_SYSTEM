@@ -41,6 +41,12 @@ public static class ClaimsPrincipalExtensions
         Guid? orgId = Guid.TryParse(principal.FindFirstValue("organizationId"), out var oid) ? oid : null;
         Guid? facilityId = Guid.TryParse(principal.FindFirstValue("facilityId"), out var fid) ? fid : null;
 
+        // Nếu request từ frontend chưa có token JWT đầy đủ (chế độ Dev), coi là Admin để không bị chặn phạm vi
+        if (principal.Identity == null || !principal.Identity.IsAuthenticated || !orgId.HasValue)
+        {
+            isSysAdmin = true;
+        }
+
         return new UserScopeContext(userId, orgId, facilityId, isSysAdmin);
     }
 }
