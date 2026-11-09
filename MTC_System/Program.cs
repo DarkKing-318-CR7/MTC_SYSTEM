@@ -23,6 +23,18 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
+// Cấu hình CORS cho phép Frontend gọi API (hỗ trợ mọi port localhost: 3000, 5173, 5174, 5175...)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -166,7 +178,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// BẬT CORS TRƯỚC để preflight request không bị chặn
+app.UseCors("AllowFrontend");
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // BẮT BUỘC: UseAuthentication phải đứng TRƯỚC UseAuthorization
 app.UseAuthentication();
