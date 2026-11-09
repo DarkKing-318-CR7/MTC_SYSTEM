@@ -30,10 +30,12 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
     private readonly string _storageRoot;
     private readonly int _chunkSize;
     private readonly TimeSpan _sessionLifetime;
+    private readonly ILogger<ChunkedMediaUploadSvc> _logger;
 
-    public ChunkedMediaUploadSvc(MyDbContext db, IConfiguration configuration, IWebHostEnvironment environment)
+    public ChunkedMediaUploadSvc(MyDbContext db, IConfiguration configuration, IWebHostEnvironment environment, ILogger<ChunkedMediaUploadSvc> logger)
     {
         _db = db;
+        _logger = logger;
         var configuredRoot = configuration["MediaUpload:StorageRoot"] ?? "App_Data/MediaUploads";
         if (Path.IsPathRooted(configuredRoot)) throw new InvalidOperationException("MediaUpload:StorageRoot must be relative to the application content root.");
         var contentRoot = Path.GetFullPath(environment.ContentRootPath) + Path.DirectorySeparatorChar;
@@ -224,6 +226,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                 // Stable for this session so an interrupted finalization can safely retry its own destination.
                 var mediaId = session.Id;
                 var extension = Path.GetExtension(session.ExpectedFileName).ToLowerInvariant();
+                await MediaFileContentValidator.ValidateAsync(extension, assemblingPath, cancellationToken);
                 var publishedDirectory = Path.Combine(_storageRoot, "media", metadata.OrganizationId.ToString("N"), metadata.FacilityId.ToString("N"));
                 var relativeFile = $"media/{metadata.OrganizationId:N}/{metadata.FacilityId:N}/{mediaId:N}{extension}";
                 publishedPath = Path.Combine(publishedDirectory, $"{mediaId:N}{extension}");
@@ -506,14 +509,22 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
         ".mp4" => "Video", ".mp3" or ".wav" => "Audio", ".png" or ".jpg" or ".jpeg" => "Image",
         _ => throw new MediaUploadException(StatusCodes.Status400BadRequest, "File type is not supported.")
     };
-    private static void CleanupAssemblyFiles(string directory)
+
+    private void CleanupAssemblyFiles(string directory)
     {
         try { foreach (var file in Directory.EnumerateFiles(directory, "assembling-*.tmp")) TryDeleteFile(file); }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _logger.LogWarning(ex, "Could not enumerate temporary assembly files in {Directory}.", directory); }
     }
-    private static void TryDeleteDirectory(string path) { try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
-    private static void TryDeleteFile(string path) { try { if (File.Exists(path)) File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
+    private void TryDeleteDirectory(string path)
+    {
+        try { if (Directory.Exists(path)) Directory.Delete(path, true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _logger.LogWarning(ex, "Could not delete temporary upload directory {Directory}.", path); }
+    }
+    private void TryDeleteFile(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _logger.LogWarning(ex, "Could not delete temporary upload file {FilePath}.", path); }
+    }
 
     private sealed record UploadMetadata(string MediaName, Guid OrganizationId, Guid FacilityId, Guid? CategoryId);
 }
