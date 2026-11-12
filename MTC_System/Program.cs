@@ -16,6 +16,24 @@ using MTC_System.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var certPath = Path.Combine(
+    builder.Environment.ContentRootPath,
+    "certs",
+    "alta-api.pfx");
+
+// Cấu hình Kestrel hỗ trợ cả HTTP (5006) và HTTPS (443 với chứng chỉ alta-api.pfx)
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(5006);
+    if (File.Exists(certPath))
+    {
+        serverOptions.ListenAnyIP(443, listenOptions =>
+        {
+            listenOptions.UseHttps(certPath, "123456");
+        });
+    }
+});
+
 // Add services to the container.
 // 1. Controllers & Chống lỗi vòng lặp JSON
 builder.Services.AddControllers()
@@ -23,6 +41,18 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+
+// Cấu hình CORS cho phép Frontend gọi API (hỗ trợ mọi port localhost: 3000, 5173, 5174, 5175...)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -267,7 +297,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// BẬT CORS TRƯỚC để preflight request không bị chặn
+app.UseCors("AllowFrontend");
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Cấu hình Static Files cho web wwwroot (không public thư mục /storage để bảo vệ media theo tổ chức)
 app.UseStaticFiles();

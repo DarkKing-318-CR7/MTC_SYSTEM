@@ -1,0 +1,672 @@
+{
+	"info": {
+		"_postman_id": "mtc-backend-api-collection-2026",
+		"name": "MTC Backend API Collection (Official)",
+		"description": "Bộ API hoàn chỉnh của Hệ thống Quản trị & Điều hành Màn hình / Loa Tập trung (MTC Backend .NET 8). Đã cấu hình sẵn biến {{baseUrl}}, tự động lưu {{token}} sau khi Đăng nhập.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "01. Authentication & 2FA",
+			"item": [
+				{
+					"name": "1. Đăng nhập (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.success && jsonData.data) {",
+									"    if (jsonData.data.accessToken) {",
+									"        pm.collectionVariables.set(\"token\", jsonData.data.accessToken);",
+									"        console.log(\"Saved accessToken into collection variable.\");",
+									"    }",
+									"    if (jsonData.data.refreshToken) {",
+									"        pm.collectionVariables.set(\"refreshToken\", jsonData.data.refreshToken);",
+									"        console.log(\"Saved refreshToken into collection variable.\");",
+									"    }",
+									"    if (jsonData.data.user && jsonData.data.user.userId) {",
+									"        pm.collectionVariables.set(\"userId\", jsonData.data.user.userId);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin@123456\",\n  \"rememberMe\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					}
+				},
+				{
+					"name": "2. Xác thực 2 bước (Verify 2FA)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.success && jsonData.data && jsonData.data.accessToken) {",
+									"    pm.collectionVariables.set(\"token\", jsonData.data.accessToken);",
+									"    pm.collectionVariables.set(\"refreshToken\", jsonData.data.refreshToken);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/verify-2fa",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"verify-2fa"
+							]
+						}
+					}
+				},
+				{
+					"name": "3. Làm mới Token (Refresh Token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.success && jsonData.data && jsonData.data.accessToken) {",
+									"    pm.collectionVariables.set(\"token\", jsonData.data.accessToken);",
+									"    pm.collectionVariables.set(\"refreshToken\", jsonData.data.refreshToken);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"accessToken\": \"{{token}}\",\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/refresh-token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"refresh-token"
+							]
+						}
+					}
+				},
+				{
+					"name": "4. Xem Hồ sơ cá nhân (Me)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						}
+					}
+				},
+				{
+					"name": "5. Cập nhật Hồ sơ cá nhân",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"fullName\": \"Quản trị viên Hệ thống MTC\",\n  \"phoneNumber\": \"0909888999\",\n  \"email\": \"admin@mtc.vn\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"profile"
+							]
+						}
+					}
+				},
+				{
+					"name": "6. Đổi mật khẩu cá nhân",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"currentPassword\": \"Admin@123456\",\n  \"newPassword\": \"Admin@654321\",\n  \"confirmNewPassword\": \"Admin@654321\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/change-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"change-password"
+							]
+						}
+					}
+				},
+				{
+					"name": "7. Thiết lập 2FA (Setup)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/2fa/setup",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"2fa",
+								"setup"
+							]
+						}
+					}
+				},
+				{
+					"name": "8. Kích hoạt 2FA (Enable)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/2fa/enable",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"2fa",
+								"enable"
+							]
+						}
+					}
+				},
+				{
+					"name": "9. Đăng xuất (Logout)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "02. Users & Roles",
+			"item": [
+				{
+					"name": "1. Danh sách Người dùng (Phân trang & Lọc)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users?page=1&pageSize=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "2. Xem chi tiết Người dùng",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "3. Thêm mới Người dùng",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"nhanvien_01\",\n  \"password\": \"User@123456\",\n  \"fullName\": \"Nguyễn Văn A\",\n  \"email\": \"nhanvien01@mtc.vn\",\n  \"phoneNumber\": \"0988776655\",\n  \"roleId\": \"aaaaaaaa-0002-0000-0000-000000000000\",\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						}
+					}
+				},
+				{
+					"name": "4. Khóa / Mở khóa Người dùng",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isActive\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}",
+								"status"
+							]
+						}
+					}
+				},
+				{
+					"name": "5. Danh sách Vai trò (Roles)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/roles",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"roles"
+							]
+						}
+					}
+				},
+				{
+					"name": "6. Danh mục 18 Quyền (Permissions)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/roles/permissions",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"roles",
+								"permissions"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "03. Organizations & Facilities",
+			"item": [
+				{
+					"name": "1. Lấy danh sách Tổ chức",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/organizations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"organizations"
+							]
+						}
+					}
+				},
+				{
+					"name": "2. Dựng cây địa bàn phân cấp (Tree)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/facilities/tree/{{organizationId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"facilities",
+								"tree",
+								"{{organizationId}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "3. Lấy toàn bộ ID cơ sở con/cháu (Descendants)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/facilities/{{facilityId}}/descendant-ids",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"facilities",
+								"{{facilityId}}",
+								"descendant-ids"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "04. Media, Broadcasts & Devices",
+			"item": [
+				{
+					"name": "1. Danh sách Thiết bị (Devices)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/devices",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"devices"
+							]
+						}
+					}
+				},
+				{
+					"name": "2. Danh sách Bản tin (Broadcasts)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/broadcasts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"broadcasts"
+							]
+						}
+					}
+				},
+				{
+					"name": "3. Danh sách Gói cước (Packages)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/packages",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"packages"
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://localhost:7259/api"
+		},
+		{
+			"key": "token",
+			"value": ""
+		},
+		{
+			"key": "refreshToken",
+			"value": ""
+		},
+		{
+			"key": "userId",
+			"value": "11111111-1111-1111-1111-111111111111"
+		},
+		{
+			"key": "organizationId",
+			"value": ""
+		},
+		{
+			"key": "facilityId",
+			"value": ""
+		}
+	]
+}
