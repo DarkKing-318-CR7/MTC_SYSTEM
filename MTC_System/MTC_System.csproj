@@ -32,4 +32,10 @@
     <ProjectReference Include="..\Helpers\Helpers.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="certs\alta-api.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

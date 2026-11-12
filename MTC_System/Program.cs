@@ -16,6 +16,24 @@ using MTC_System.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var certPath = Path.Combine(
+    builder.Environment.ContentRootPath,
+    "certs",
+    "alta-api.pfx");
+
+// Cấu hình Kestrel hỗ trợ cả HTTP (5006) và HTTPS (443 với chứng chỉ alta-api.pfx)
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(5006);
+    if (File.Exists(certPath))
+    {
+        serverOptions.ListenAnyIP(443, listenOptions =>
+        {
+            listenOptions.UseHttps(certPath, "123456");
+        });
+    }
+});
+
 // Add services to the container.
 // 1. Controllers & Chống lỗi vòng lặp JSON
 builder.Services.AddControllers()
