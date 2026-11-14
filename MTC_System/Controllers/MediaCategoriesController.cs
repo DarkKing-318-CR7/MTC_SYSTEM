@@ -18,6 +18,7 @@ public sealed class MediaCategoriesController : ControllerBase
     public MediaCategoriesController(IMediaCategoryService service) => _service = service;
 
     [HttpGet]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR,APPROVER")]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<MediaCategoryResponse>>>> GetAll(CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId)) return Forbid();
@@ -26,6 +27,7 @@ public sealed class MediaCategoriesController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR,APPROVER")]
     public async Task<ActionResult<ApiResponse<MediaCategoryResponse>>> GetById(Guid id, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId)) return Forbid();
@@ -34,7 +36,7 @@ public sealed class MediaCategoriesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "CREATOR,ADMINISTRATOR,Administrator")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR")]
     public async Task<ActionResult<ApiResponse<MediaCategoryResponse>>> Create([FromBody] CreateMediaCategoryRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId) || !TryGetUserId(out var userId)) return Forbid();
@@ -43,7 +45,7 @@ public sealed class MediaCategoriesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "CREATOR,ADMINISTRATOR,Administrator")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR")]
     public async Task<ActionResult<ApiResponse<MediaCategoryResponse>>> Update(Guid id, [FromBody] UpdateMediaCategoryRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId) || !TryGetUserId(out var userId)) return Forbid();
@@ -52,7 +54,7 @@ public sealed class MediaCategoriesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "CREATOR,ADMINISTRATOR,Administrator")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId) || !TryGetUserId(out var userId)) return Forbid();

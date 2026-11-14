@@ -15,6 +15,11 @@ namespace MTC_System.Data.Configurations
             builder.Property(m => m.FileName).IsRequired().HasMaxLength(500);
             builder.Property(m => m.FilePath).HasMaxLength(1000);
             builder.Property(m => m.FileType).IsRequired().HasMaxLength(50);
+            builder.Property(m => m.HlsStatus).IsRequired().HasMaxLength(20).HasDefaultValue("NotRequired");
+            builder.Property(m => m.HlsProcessingAttemptId);
+            builder.Property(m => m.HlsRelativePath).HasMaxLength(1000);
+            builder.Property(m => m.HlsFailureCode).HasMaxLength(80);
+            builder.HasIndex(m => new { m.HlsStatus, m.HlsProcessingStartedAt });
             builder.Property(m => m.SourceType).HasConversion<string>().IsRequired().HasMaxLength(50).HasDefaultValue(MediaSourceMethod.File);
             builder.Property(m => m.ApprovalStatus).IsRequired().HasMaxLength(50).HasDefaultValue("Chờ duyệt");
             builder.Property(m => m.RejectionReason).HasMaxLength(510);

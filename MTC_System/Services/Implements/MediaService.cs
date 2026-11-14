@@ -232,6 +232,8 @@ public sealed class MediaService : IMediaService
         SourceType = media.SourceType,
         FileSize = media.FileSize,
         DurationSeconds = media.DurationSeconds,
+        HlsProcessingStatus = media.HlsStatus,
+        HlsPlaybackUrl = media.HlsStatus == "Ready" ? $"/api/media/{media.Id:D}/hls/index.m3u8" : null,
         ApprovalStatus = media.ApprovalStatus,
         RejectionReason = media.RejectionReason,
         Url = media.Url,

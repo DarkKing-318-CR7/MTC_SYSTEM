@@ -91,7 +91,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Broadcast", b =>
@@ -186,7 +186,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("PlaylistId");
 
-                    b.ToTable("Broadcasts", (string)null);
+                    b.ToTable("Broadcasts");
                 });
 
             modelBuilder.Entity("MTC_System.Models.BroadcastDevice", b =>
@@ -236,7 +236,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("BroadcastScheduleId", "DeviceId")
                         .IsUnique();
 
-                    b.ToTable("BroadcastDevices", (string)null);
+                    b.ToTable("BroadcastDevices");
                 });
 
             modelBuilder.Entity("MTC_System.Models.BroadcastSchedule", b =>
@@ -287,7 +287,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("BroadcastId");
 
-                    b.ToTable("BroadcastSchedules", (string)null);
+                    b.ToTable("BroadcastSchedules");
                 });
 
             modelBuilder.Entity("MTC_System.Models.BroadcastTimeSlot", b =>
@@ -327,7 +327,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("BroadcastScheduleId");
 
-                    b.ToTable("BroadcastTimeSlots", (string)null);
+                    b.ToTable("BroadcastTimeSlots");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Device", b =>
@@ -500,7 +500,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Devices", (string)null);
+                    b.ToTable("Devices");
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceActivityLog", b =>
@@ -563,7 +563,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("DeviceActivityLogs", (string)null);
+                    b.ToTable("DeviceActivityLogs");
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceErrorCode", b =>
@@ -613,7 +613,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("ErrorCode")
                         .IsUnique();
 
-                    b.ToTable("DeviceErrorCodes", (string)null);
+                    b.ToTable("DeviceErrorCodes");
 
                     b.HasData(
                         new
@@ -743,7 +743,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("DeviceGroups", (string)null);
+                    b.ToTable("DeviceGroups");
                 });
 
             modelBuilder.Entity("MTC_System.Models.DevicePlayHistory", b =>
@@ -799,7 +799,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("DeviceId");
 
-                    b.ToTable("DevicePlayHistories", (string)null);
+                    b.ToTable("DevicePlayHistories");
                 });
 
             modelBuilder.Entity("MTC_System.Models.DeviceVendor", b =>
@@ -863,7 +863,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("OrganizationId", "VendorName")
                         .IsUnique();
 
-                    b.ToTable("DeviceVendors", (string)null);
+                    b.ToTable("DeviceVendors");
 
                     b.HasData(
                         new
@@ -940,7 +940,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("FacilityId");
 
-                    b.ToTable("EmergencyBroadcasts", (string)null);
+                    b.ToTable("EmergencyBroadcasts");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Facility", b =>
@@ -992,7 +992,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("Facilities", (string)null);
+                    b.ToTable("Facilities");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Invoice", b =>
@@ -1073,7 +1073,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("SubscriptionId");
 
-                    b.ToTable("Invoices", (string)null);
+                    b.ToTable("Invoices");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Media", b =>
@@ -1133,6 +1133,30 @@ namespace MTC_System.Migrations
                     b.Property<decimal?>("FrequencyHz")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("HlsFailureCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<long>("HlsOutputSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("HlsProcessingStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("HlsProcessingAttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("HlsRelativePath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("HlsStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("NotRequired");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -1189,7 +1213,9 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Media", (string)null);
+                    b.HasIndex("HlsStatus", "HlsProcessingStartedAt");
+
+                    b.ToTable("Media");
                 });
 
             modelBuilder.Entity("MTC_System.Models.MediaCategory", b =>
@@ -1238,7 +1264,7 @@ namespace MTC_System.Migrations
                         .IsUnique()
                         .HasFilter("\"OrganizationId\" IS NOT NULL");
 
-                    b.ToTable("MediaCategories", (string)null);
+                    b.ToTable("MediaCategories");
 
                     b.HasData(
                         new
@@ -1413,7 +1439,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("UploadIdentifier")
                         .IsUnique();
 
-                    b.ToTable("MediaUploadSessions", (string)null);
+                    b.ToTable("MediaUploadSessions");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Organization", b =>
@@ -1472,7 +1498,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("OrganizationCode")
                         .IsUnique();
 
-                    b.ToTable("Organizations", (string)null);
+                    b.ToTable("Organizations");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Package", b =>
@@ -1546,7 +1572,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("DurationMonths", "RegistrationStartsAt", "RegistrationEndsAt");
 
-                    b.ToTable("Packages", (string)null);
+                    b.ToTable("Packages");
 
                     b.HasData(
                         new
@@ -1643,7 +1669,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("PermissionCode")
                         .IsUnique();
 
-                    b.ToTable("Permissions", (string)null);
+                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Playlist", b =>
@@ -1701,7 +1727,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Playlists", (string)null);
+                    b.ToTable("Playlists");
                 });
 
             modelBuilder.Entity("MTC_System.Models.PlaylistItem", b =>
@@ -1744,7 +1770,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("PlaylistId", "MediaId")
                         .IsUnique();
 
-                    b.ToTable("PlaylistItems", (string)null);
+                    b.ToTable("PlaylistItems");
                 });
 
             modelBuilder.Entity("MTC_System.Models.RefreshToken", b =>
@@ -1789,7 +1815,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Role", b =>
@@ -1838,7 +1864,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("RoleCode")
                         .IsUnique();
 
-                    b.ToTable("Roles", (string)null);
+                    b.ToTable("Roles");
 
                     b.HasData(
                         new
@@ -1913,7 +1939,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("RoleId", "PermissionId")
                         .IsUnique();
 
-                    b.ToTable("RolePermissions", (string)null);
+                    b.ToTable("RolePermissions");
                 });
 
             modelBuilder.Entity("MTC_System.Models.SharedMedia", b =>
@@ -1976,7 +2002,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("FromFacilityId", "ToFacilityId", "MediaId")
                         .IsUnique();
 
-                    b.ToTable("SharedMedia", (string)null);
+                    b.ToTable("SharedMedia");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Subscription", b =>
@@ -2055,7 +2081,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("PackageId");
 
-                    b.ToTable("Subscriptions", (string)null);
+                    b.ToTable("Subscriptions");
                 });
 
             modelBuilder.Entity("MTC_System.Models.SubscriptionChange", b =>
@@ -2143,7 +2169,7 @@ namespace MTC_System.Migrations
                         .IsUnique()
                         .HasFilter("\"Status\" = 'Đã đặt' AND \"IsDeleted\" = false");
 
-                    b.ToTable("SubscriptionChanges", (string)null);
+                    b.ToTable("SubscriptionChanges");
                 });
 
             modelBuilder.Entity("MTC_System.Models.SystemNotification", b =>
@@ -2210,7 +2236,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("TargetUserId");
 
-                    b.ToTable("SystemNotifications", (string)null);
+                    b.ToTable("SystemNotifications");
                 });
 
             modelBuilder.Entity("MTC_System.Models.SystemNotificationRead", b =>
@@ -2250,7 +2276,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("NotificationId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("SystemNotificationReads", (string)null);
+                    b.ToTable("SystemNotificationReads");
                 });
 
             modelBuilder.Entity("MTC_System.Models.SystemSetting", b =>
@@ -2297,7 +2323,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("OrganizationId", "SettingKey")
                         .IsUnique();
 
-                    b.ToTable("SystemSettings", (string)null);
+                    b.ToTable("SystemSettings");
                 });
 
             modelBuilder.Entity("MTC_System.Models.Template", b =>
@@ -2354,7 +2380,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.ToTable("Templates", (string)null);
+                    b.ToTable("Templates");
                 });
 
             modelBuilder.Entity("MTC_System.Models.TemplateZone", b =>
@@ -2412,7 +2438,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("TemplateId");
 
-                    b.ToTable("TemplateZones", (string)null);
+                    b.ToTable("TemplateZones");
                 });
 
             modelBuilder.Entity("MTC_System.Models.UpgradePackage", b =>
@@ -2480,7 +2506,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("IsActive", "SalesStartsAt", "SalesEndsAt");
 
-                    b.ToTable("UpgradePackages", (string)null);
+                    b.ToTable("UpgradePackages");
                 });
 
             modelBuilder.Entity("MTC_System.Models.UpgradePurchase", b =>
@@ -2527,7 +2553,7 @@ namespace MTC_System.Migrations
 
                     b.HasIndex("UpgradePackageId", "OrganizationId");
 
-                    b.ToTable("UpgradePurchases", (string)null);
+                    b.ToTable("UpgradePurchases");
                 });
 
             modelBuilder.Entity("MTC_System.Models.User", b =>
@@ -2617,7 +2643,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("MTC_System.Models.UserRole", b =>
@@ -2654,7 +2680,7 @@ namespace MTC_System.Migrations
                     b.HasIndex("UserId", "RoleId")
                         .IsUnique();
 
-                    b.ToTable("UserRoles", (string)null);
+                    b.ToTable("UserRoles");
                 });
 
             modelBuilder.Entity("MTC_System.Models.AuditLog", b =>

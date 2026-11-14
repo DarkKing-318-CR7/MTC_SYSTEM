@@ -11,6 +11,8 @@ public sealed class MediaResponse
     public MediaSourceMethod SourceType { get; set; }
     public long FileSize { get; set; }
     public int DurationSeconds { get; set; }
+    public string HlsProcessingStatus { get; set; } = "NotRequired";
+    public string? HlsPlaybackUrl { get; set; }
     public string ApprovalStatus { get; set; } = string.Empty;
     public string? RejectionReason { get; set; }
     public string? Url { get; set; }

@@ -167,8 +167,13 @@ builder.Services.AddScoped<PackageChangeService>();
 
 // [Dev 2]
 builder.Services.AddScoped<IChunkedMediaUploadSvc, ChunkedMediaUploadSvc>();
+builder.Services.AddSingleton<IHlsProcessRunner, HlsProcessRunner>();
+builder.Services.AddScoped<HlsProcessingService>();
+builder.Services.AddHostedService<HlsProcessingWorker>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IMediaCategoryService, MediaCategoryService>();
+builder.Services.AddScoped<ITemplateService, TemplateService>();
+builder.Services.AddScoped<IPlaylistService, PlaylistService>();
 
 // [Dev 3]
 builder.Services.AddScoped<IBroadcastService, BroadcastService>();
@@ -270,12 +275,39 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // Cấu hình Static Files cho web wwwroot (không public thư mục /storage để bảo vệ media theo tổ chức)
+var storagePath = MediaStoragePathResolver.ResolveStorageRoot(app.Configuration, app.Environment);
+Directory.CreateDirectory(storagePath);
+var ffmpegPath = app.Configuration["MediaProcessing:FfmpegPath"] ?? "ffmpeg";
+var ffprobePath = app.Configuration["MediaProcessing:FfprobePath"] ?? "ffprobe";
+var timeoutSetting = app.Configuration["MediaProcessing:TimeoutSeconds"];
+var timeoutSeconds = int.TryParse(timeoutSetting, out var configuredTimeoutSeconds)
+    ? configuredTimeoutSeconds is >= 30 and <= 86400
+        ? configuredTimeoutSeconds.ToString()
+        : $"invalid ({configuredTimeoutSeconds}; processor rejects values outside 30-86400)"
+    : "3600 (default)";
+var segmentDurationSetting = app.Configuration["MediaProcessing:SegmentDurationSeconds"];
+var segmentDurationSeconds = int.TryParse(segmentDurationSetting, out var configuredSegmentDurationSeconds)
+    ? configuredSegmentDurationSeconds is >= 2 and <= 30
+        ? configuredSegmentDurationSeconds.ToString()
+        : $"invalid ({configuredSegmentDurationSeconds}; processor rejects values outside 2-30)"
+    : "6 (default)";
+var rawStorageRoot = app.Configuration["MediaUpload:StorageRoot"];
+app.Logger.LogInformation(
+    "HLS-DIAGNOSTIC Startup Environment={EnvironmentName} ContentRoot={ContentRootPath} CurrentDirectory={CurrentDirectory} BaseDirectory={BaseDirectory} FfmpegPath={FfmpegPath} FfprobePath={FfprobePath} TimeoutSeconds={TimeoutSeconds} SegmentDurationSeconds={SegmentDurationSeconds} StorageRootRaw={StorageRootRaw} StorageRootUsesDefault={StorageRootUsesDefault} ResolvedStorageRoot={ResolvedStorageRoot} FfmpegExists={FfmpegExists} FfprobeExists={FfprobeExists}",
+    app.Environment.EnvironmentName,
+    app.Environment.ContentRootPath,
+    Directory.GetCurrentDirectory(),
+    AppContext.BaseDirectory,
+    ffmpegPath,
+    ffprobePath,
+    timeoutSeconds,
+    segmentDurationSeconds,
+    rawStorageRoot,
+    rawStorageRoot is null,
+    storagePath,
+    File.Exists(ffmpegPath),
+    File.Exists(ffprobePath));
 app.UseStaticFiles();
-var storagePath = Path.Combine(app.Environment.ContentRootPath, app.Configuration["MediaUpload:StorageRoot"] ?? "storage");
-if (!Directory.Exists(storagePath))
-{
-    Directory.CreateDirectory(storagePath);
-}
 
 // BẮT BUỘC: UseAuthentication phải đứng TRƯỚC UseAuthorization
 app.UseAuthentication();

@@ -244,6 +244,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                     SourceType = MediaSourceMethod.File,
                     FileSize = session.ExpectedFileSize,
                     SizeInBytes = session.ExpectedFileSize,
+                    HlsStatus = extension is ".mp4" or ".mp3" or ".wav" ? "Pending" : "NotRequired",
                     ChecksumMd5 = md5,
                     ChecksumSha256 = sha256,
                     ApprovalStatus = "Chờ duyệt",

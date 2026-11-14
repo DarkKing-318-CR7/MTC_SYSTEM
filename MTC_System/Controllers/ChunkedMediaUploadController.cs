@@ -8,7 +8,7 @@ using MTC_System.Services.Interfaces;
 namespace MTC_System.Controllers;
 
 [ApiController]
-[Authorize(Roles = "CREATOR,ADMINISTRATOR,Administrator")]
+[Authorize(Roles = "ADMINISTRATOR,CREATOR")]
 [Route("api/media-uploads")]
 public sealed class ChunkedMediaUploadController : ControllerBase
 {
