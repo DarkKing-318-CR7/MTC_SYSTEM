@@ -27,7 +27,7 @@ public sealed class MediaService : IMediaService
         var facilityScope = await ResolveFacilityScopeAsync(organizationId, facilityId, cancellationToken);
         var query = Scope(_db.Media.AsNoTracking().Where(x => !x.IsDeleted), organizationId, facilityScope);
         var media = await query.OrderByDescending(x => x.CreatedAt).ToListAsync(cancellationToken);
-        return media.Select(Map).ToList();
+        return await MapManyAsync(media, organizationId, cancellationToken);
     }
 
     public async Task<MediaResponse> GetByIdAsync(Guid id, Guid organizationId, Guid? facilityId, CancellationToken cancellationToken)
@@ -36,7 +36,7 @@ public sealed class MediaService : IMediaService
         var media = await Scope(_db.Media.AsNoTracking().Where(x => x.Id == id && !x.IsDeleted), organizationId, facilityScope)
             .SingleOrDefaultAsync(cancellationToken)
             ?? throw Error(StatusCodes.Status404NotFound, "Không tìm thấy media.");
-        return Map(media);
+        return (await MapManyAsync(new[] { media }, organizationId, cancellationToken))[0];
     }
 
     public async Task<MediaResponse> CreateAsync(CreateMediaRequest request, Guid organizationId, Guid facilityId, Guid userId, CancellationToken cancellationToken)
@@ -66,7 +66,7 @@ public sealed class MediaService : IMediaService
         };
         _db.Media.Add(media);
         await _db.SaveChangesAsync(cancellationToken);
-        return Map(media);
+        return (await MapManyAsync(new[] { media }, organizationId, cancellationToken))[0];
     }
 
     public async Task<MediaResponse> UpdateAsync(Guid id, UpdateMediaRequest request, Guid organizationId, Guid? facilityId, Guid userId, CancellationToken cancellationToken)
@@ -115,7 +115,7 @@ public sealed class MediaService : IMediaService
         media.FacilityId = request.FacilityId;
         media.UpdatedAt = now;
         media.UpdatedBy = userId;
-        return Map(media);
+        return (await MapManyAsync(new[] { media }, organizationId, cancellationToken))[0];
     }
 
     public Task<MediaResponse> ApproveAsync(Guid id, Guid organizationId, Guid? facilityId, Guid checkerId, CancellationToken cancellationToken) =>
@@ -146,6 +146,8 @@ public sealed class MediaService : IMediaService
             .ExecuteUpdateAsync(updates => updates
                 .SetProperty(x => x.ApprovalStatus, approve ? Approved : Rejected)
                 .SetProperty(x => x.RejectionReason, approve ? null : reason)
+                .SetProperty(x => x.ApprovedBy, approve ? checkerId : (Guid?)null)
+                .SetProperty(x => x.ApprovedAt, approve ? now : (DateTimeOffset?)null)
                 .SetProperty(x => x.RejectedAt, approve ? null : now.UtcDateTime)
                 .SetProperty(x => x.RejectedBy, approve ? null : checkerId)
                 .SetProperty(x => x.UpdatedAt, now)
@@ -155,11 +157,13 @@ public sealed class MediaService : IMediaService
 
         media.ApprovalStatus = approve ? Approved : Rejected;
         media.RejectionReason = approve ? null : reason;
+        media.ApprovedBy = approve ? checkerId : null;
+        media.ApprovedAt = approve ? now : null;
         media.RejectedAt = approve ? null : now.UtcDateTime;
         media.RejectedBy = approve ? null : checkerId;
         media.UpdatedAt = now;
         media.UpdatedBy = checkerId;
-        return Map(media);
+        return (await MapManyAsync(new[] { media }, organizationId, cancellationToken))[0];
     }
 
     private async Task EnsureFacilityAsync(Guid facilityId, Guid organizationId, IReadOnlyCollection<Guid>? facilityScope, CancellationToken cancellationToken)
@@ -223,27 +227,98 @@ public sealed class MediaService : IMediaService
         Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 
-    private static MediaResponse Map(Media media) => new()
+    private async Task<IReadOnlyList<MediaResponse>> MapManyAsync(
+        IReadOnlyList<Media> mediaRows,
+        Guid organizationId,
+        CancellationToken cancellationToken)
     {
-        Id = media.Id,
-        MediaName = media.MediaName,
-        FileName = media.FileName,
-        FileType = media.FileType,
-        SourceType = media.SourceType,
-        FileSize = media.FileSize,
-        DurationSeconds = media.DurationSeconds,
-        ApprovalStatus = media.ApprovalStatus,
-        RejectionReason = media.RejectionReason,
-        Url = media.Url,
-        SourceUrl = media.SourceUrl,
-        FrequencyHz = media.FrequencyHz,
-        CategoryId = media.CategoryId,
-        OrganizationId = media.OrganizationId,
-        FacilityId = media.FacilityId,
-        CreatedBy = media.CreatedBy,
-        CreatedAt = media.CreatedAt,
-        UpdatedAt = media.UpdatedAt
-    };
+        if (mediaRows.Count == 0) return Array.Empty<MediaResponse>();
+
+        var mediaIds = mediaRows.Select(x => x.Id).Distinct().ToArray();
+        var userIds = mediaRows
+            .SelectMany(x => new[] { x.CreatedBy, x.ApprovedBy, x.RejectedBy })
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value)
+            .Distinct()
+            .ToArray();
+
+        var userNames = userIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.Users.AsNoTracking()
+                .Where(x => userIds.Contains(x.Id)
+                    && (x.OrganizationId == organizationId || x.OrganizationId == null)
+                    && x.IsActive
+                    && !x.IsDeleted)
+                .Select(x => new { x.Id, x.FullName })
+                .ToDictionaryAsync(x => x.Id, x => x.FullName, cancellationToken);
+
+        var sharedDestinations = await (
+            from share in _db.SharedMedia.AsNoTracking()
+            join media in _db.Media.AsNoTracking()
+                on share.MediaId equals media.Id
+            join facility in _db.Facilities.AsNoTracking()
+                on share.ToFacilityId equals facility.Id
+            where mediaIds.Contains(share.MediaId)
+                && share.OrganizationId == organizationId
+                && !share.IsDeleted
+                && (share.Status == "Chờ tiếp nhận" || share.Status == "Đã tiếp nhận")
+                && !media.IsDeleted
+                && media.OrganizationId == organizationId
+                && share.FromFacilityId == media.FacilityId
+                && facility.OrganizationId == organizationId
+                && facility.ParentId == share.FromFacilityId
+                && !facility.IsDeleted
+            select new { share.MediaId, facility.FacilityName }
+        ).ToListAsync(cancellationToken);
+
+        var namesByMedia = sharedDestinations
+            .GroupBy(x => x.MediaId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<string>)group
+                    .Select(x => x.FacilityName)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray());
+
+        string? ResolveUserName(Guid? id) =>
+            id.HasValue && userNames.TryGetValue(id.Value, out var name) && !string.IsNullOrWhiteSpace(name)
+                ? name
+                : null;
+
+        return mediaRows.Select(media => new MediaResponse
+        {
+            Id = media.Id,
+            MediaName = media.MediaName,
+            FileName = media.FileName,
+            FileType = media.FileType,
+            SourceType = media.SourceType,
+            FileSize = media.FileSize,
+            DurationSeconds = media.DurationSeconds,
+            HlsProcessingStatus = media.HlsStatus,
+            HlsPlaybackUrl = media.HlsStatus == "Ready" ? $"/api/media/{media.Id:D}/hls/index.m3u8" : null,
+            ApprovalStatus = media.ApprovalStatus,
+            RejectionReason = media.RejectionReason,
+            ApprovedBy = media.ApprovedBy,
+            ApprovedByName = ResolveUserName(media.ApprovedBy),
+            ApprovedAt = media.ApprovedAt,
+            RejectedBy = media.RejectedBy,
+            RejectedByName = ResolveUserName(media.RejectedBy),
+            RejectedAt = media.RejectedAt,
+            Url = media.Url,
+            SourceUrl = media.SourceUrl,
+            FrequencyHz = media.FrequencyHz,
+            CategoryId = media.CategoryId,
+            OrganizationId = media.OrganizationId,
+            FacilityId = media.FacilityId,
+            CreatedBy = media.CreatedBy,
+            CreatedByName = ResolveUserName(media.CreatedBy),
+            CreatedAt = media.CreatedAt,
+            UpdatedAt = media.UpdatedAt,
+            SharedFacilityNames = namesByMedia.TryGetValue(media.Id, out var facilityNames)
+                ? facilityNames
+                : Array.Empty<string>()
+        }).ToArray();
+    }
 
     private static MediaModuleException Error(int statusCode, string message) => new(statusCode, message);
 }

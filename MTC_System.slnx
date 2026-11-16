@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="Helpers/Helpers.csproj" />
+  <Project Path="MTC_System.Tests/MTC_System.Tests.csproj" />
   <Project Path="MTC_System/MTC_System.csproj" />
 </Solution>

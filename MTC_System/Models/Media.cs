@@ -24,6 +24,19 @@ namespace MTC_System.Models
         public long SizeInBytes { get; set; } = 0;        // Phục vụ báo cáo dung lượng SYS-RPT-04
         public int DurationSeconds { get; set; } = 0;     // Thời lượng phát (giây)
 
+        public string HlsStatus { get; set; } = "NotRequired";
+
+        public string? HlsRelativePath { get; set; }
+
+        public long HlsOutputSizeBytes { get; set; }
+
+        public DateTimeOffset? HlsProcessingStartedAt { get; set; }
+
+        public Guid? HlsProcessingAttemptId { get; set; }
+
+        public string? HlsFailureCode { get; set; }
+
+
         public string? ChecksumMd5 { get; set; }          // MD5/SHA256 để thiết bị đối chiếu (MTT-FILE-005)
         public string? ChecksumSha256 { get; set; }
 
@@ -36,6 +49,9 @@ namespace MTC_System.Models
         public string? RejectionReason { get; set; }
         public DateTime? RejectedAt { get; set; }         // Dev 5 dùng để auto-xóa sau 24h (USR-MED-08)
         public Guid? RejectedBy { get; set; }
+
+        public Guid? ApprovedBy { get; set; }
+        public DateTimeOffset? ApprovedAt { get; set; }
 
         /// <summary>true nếu media được cơ sở cha chia sẻ xuống (hiển thị icon chia sẻ ở UI)</summary>
         public bool IsSharedFromParent { get; set; } = false;

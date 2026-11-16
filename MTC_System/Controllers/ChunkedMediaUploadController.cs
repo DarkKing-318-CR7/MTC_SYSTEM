@@ -8,7 +8,7 @@ using MTC_System.Services.Interfaces;
 namespace MTC_System.Controllers;
 
 [ApiController]
-[Authorize(Roles = "CREATOR,ADMINISTRATOR,Administrator")]
+[Authorize(Roles = "ADMINISTRATOR,CREATOR")]
 [Route("api/media-uploads")]
 public sealed class ChunkedMediaUploadController : ControllerBase
 {
@@ -70,12 +70,13 @@ public sealed class ChunkedMediaUploadController : ControllerBase
     {
         var organizationClaim = User.FindFirstValue("organizationId");
         var facilityClaim = User.FindFirstValue("facilityId");
-        if (Guid.TryParse(organizationClaim, out var organizationId))
+        if (Guid.TryParse(organizationClaim, out var organizationId) && organizationId != Guid.Empty)
         {
             if (request.OrganizationId != Guid.Empty && request.OrganizationId != organizationId) return false;
             request.OrganizationId = organizationId;
-            if (Guid.TryParse(facilityClaim, out var facilityId))
+            if (facilityClaim is not null)
             {
+                if (!Guid.TryParse(facilityClaim, out var facilityId)) return false;
                 if (request.FacilityId == Guid.Empty || !await _uploadService.IsFacilityWithinScopeAsync(request.FacilityId, organizationId, facilityId, cancellationToken)) return false;
             }
             return true;

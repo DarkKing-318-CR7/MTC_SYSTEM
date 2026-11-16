@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +7,9 @@ using Microsoft.EntityFrameworkCore;
 using MTC_System.Common;
 using MTC_System.Data;
 using MTC_System.DTOs.Media;
+using MTC_System.Models;
 using MTC_System.Services;
+using MTC_System.Services.Implements;
 using MTC_System.Services.Interfaces;
 
 namespace MTC_System.Controllers;
@@ -16,6 +19,7 @@ namespace MTC_System.Controllers;
 [Route("api/media")]
 public sealed class MediaController : ControllerBase
 {
+    private static readonly Regex HlsSegmentName = new("^segment_[0-9]{5,8}\\.ts$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private readonly IMediaService _service;
     private readonly MyDbContext _context;
     private readonly IConfiguration _configuration;
@@ -31,6 +35,59 @@ public sealed class MediaController : ControllerBase
         _context = context;
         _configuration = configuration;
         _environment = environment;
+    }
+
+    [HttpGet("{id:guid}/hls/index.m3u8")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR,APPROVER")]
+    public async Task<IActionResult> GetHlsPlaylist(Guid id, CancellationToken cancellationToken)
+    {
+        var media = await GetPlayableHlsMediaAsync(id, cancellationToken);
+        if (media is null) return NotFound();
+        var playlistPath = ResolveHlsPath(media, "index.m3u8");
+        return System.IO.File.Exists(playlistPath)
+            ? PhysicalFile(playlistPath, "application/vnd.apple.mpegurl")
+            : NotFound();
+    }
+
+    [HttpGet("{id:guid}/hls/{segmentName}")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR,APPROVER")]
+    public async Task<IActionResult> GetHlsSegment(Guid id, string segmentName, CancellationToken cancellationToken)
+    {
+        if (!HlsSegmentName.IsMatch(segmentName)) return NotFound();
+        var media = await GetPlayableHlsMediaAsync(id, cancellationToken);
+        if (media is null) return NotFound();
+        var segmentPath = ResolveHlsPath(media, segmentName);
+        return System.IO.File.Exists(segmentPath)
+            ? PhysicalFile(segmentPath, "video/mp2t", enableRangeProcessing: true)
+            : NotFound();
+    }
+
+    private async Task<Media?> GetPlayableHlsMediaAsync(Guid id, CancellationToken cancellationToken)
+    {
+        if (!TryGetScope(out var organizationId, out var facilityId)) return null;
+        var media = await _context.Media.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken);
+        if (media is null || media.HlsStatus != "Ready" || media.ApprovalStatus != "\u0110\u00e3 duy\u1ec7t") return null;
+        if (media.OrganizationId != organizationId ||
+            !await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken)) return null;
+        return media;
+    }
+
+    private string ResolveHlsPath(Media media, string fileName)
+    {
+        var attemptPath = media.HlsRelativePath;
+        if (attemptPath is null || !Regex.IsMatch(attemptPath,
+                $"^hls/{media.Id:N}/[0-9a-f]{{32}}/index\\.m3u8$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
+            return Path.Combine(_environment.ContentRootPath, "__invalid_hls_path__");
+        try
+        {
+            var root = MediaStoragePathResolver.ResolveStorageRoot(_configuration, _environment);
+            var relativeDirectory = Path.GetDirectoryName(attemptPath.Replace('/', Path.DirectorySeparatorChar))!;
+            return MediaStoragePathResolver.ResolveUnderRoot(root, Path.Combine(relativeDirectory, fileName));
+        }
+        catch (InvalidDataException)
+        {
+            return Path.Combine(_environment.ContentRootPath, "__invalid_hls_path__");
+        }
     }
 
     /// <summary>
@@ -84,22 +141,26 @@ public sealed class MediaController : ControllerBase
                 if (!isAssigned)
                     return Forbid();
             }
+
+            if (media.ApprovalStatus != "\u0110\u00e3 duy\u1ec7t")
+                return Forbid();
         }
         else
         {
             // Người dùng hệ thống (User JWT)
-            bool isAdmin = User.IsInRole("ADMINISTRATOR") || User.IsInRole("Administrator");
-            if (!isAdmin)
-            {
-                if (!TryGetScope(out var organizationId, out var facilityId))
-                    return Forbid();
+            if (!User.IsInRole("ADMINISTRATOR") && !User.IsInRole("CREATOR") && !User.IsInRole("APPROVER")) return Forbid();
+            if (!TryGetScope(out var organizationId, out var facilityId))
+                return Forbid();
 
-                if (organizationId != media.OrganizationId)
-                    return Forbid();
+            if (organizationId != media.OrganizationId)
+                return Forbid();
 
-                if (!await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken))
-                    return Forbid();
-            }
+            if (!await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken))
+                return Forbid();
+
+            if (media.ApprovalStatus != "\u0110\u00e3 duy\u1ec7t" &&
+                !(media.ApprovalStatus == "Ch\u1edd duy\u1ec7t" && CanPreviewPendingMedia(media)))
+                return Forbid();
         }
 
         if (!string.IsNullOrWhiteSpace(media.Url))
@@ -112,23 +173,15 @@ public sealed class MediaController : ControllerBase
             return NotFound(ApiResponse<string>.Fail("Media không có đường dẫn tệp."));
         }
 
-        var configuredRoot = _configuration["MediaUpload:StorageRoot"] ?? "storage";
-        var storageRoot = Path.GetFullPath(Path.Combine(_environment.ContentRootPath, configuredRoot));
-        var fullPath = Path.Combine(storageRoot, media.FilePath.TrimStart('/', '\\'));
-
-        if (!System.IO.File.Exists(fullPath))
+        string fullPath;
+        try
         {
-            fullPath = Path.Combine(_environment.ContentRootPath, media.FilePath.TrimStart('/', '\\'));
+            var storageRoot = MediaStoragePathResolver.ResolveStorageRoot(_configuration, _environment);
+            fullPath = MediaStoragePathResolver.ResolveUnderRoot(storageRoot, media.FilePath);
         }
-
-        if (!System.IO.File.Exists(fullPath))
+        catch (InvalidDataException)
         {
-            fullPath = Path.Combine(AppContext.BaseDirectory, "storage", media.FilePath.TrimStart('/', '\\'));
-        }
-
-        if (!System.IO.File.Exists(fullPath))
-        {
-            fullPath = Path.Combine(AppContext.BaseDirectory, media.FilePath.TrimStart('/', '\\'));
+            return NotFound(ApiResponse<string>.Fail("Stored media path is invalid."));
         }
 
         if (!System.IO.File.Exists(fullPath))
@@ -152,7 +205,15 @@ public sealed class MediaController : ControllerBase
         return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
     }
 
+    private bool CanPreviewPendingMedia(Media media)
+    {
+        if (User.IsInRole("APPROVER") || User.IsInRole("ADMINISTRATOR"))
+            return true;
+        return User.IsInRole("CREATOR") && TryGetUserId(out var userId) && media.CreatedBy == userId;
+    }
+
     [HttpGet]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR,APPROVER")]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<MediaResponse>>>> GetAll(CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId, out var facilityId)) return Forbid();
@@ -161,6 +222,7 @@ public sealed class MediaController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR,APPROVER")]
     public async Task<ActionResult<ApiResponse<MediaResponse>>> GetById(Guid id, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId, out var facilityId)) return Forbid();
@@ -169,7 +231,7 @@ public sealed class MediaController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "CREATOR,ADMINISTRATOR,Administrator")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR")]
     public async Task<ActionResult<ApiResponse<MediaResponse>>> Create([FromBody] CreateMediaRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId, out var facilityId) || !TryGetUserId(out var userId)) return Forbid();
@@ -180,7 +242,7 @@ public sealed class MediaController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "CREATOR,ADMINISTRATOR,Administrator")]
+    [Authorize(Roles = "ADMINISTRATOR,CREATOR")]
     public async Task<ActionResult<ApiResponse<MediaResponse>>> Update(Guid id, [FromBody] UpdateMediaRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId, out var facilityId) || !TryGetUserId(out var userId)) return Forbid();
@@ -189,7 +251,7 @@ public sealed class MediaController : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve")]
-    [Authorize(Roles = "APPROVER,ADMINISTRATOR,Administrator")]
+    [Authorize(Roles = "ADMINISTRATOR,APPROVER")]
     public async Task<ActionResult<ApiResponse<MediaResponse>>> Approve(Guid id, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId, out var facilityId) || !TryGetUserId(out var userId)) return Forbid();
@@ -198,7 +260,7 @@ public sealed class MediaController : ControllerBase
     }
 
     [HttpPost("{id:guid}/reject")]
-    [Authorize(Roles = "APPROVER,ADMINISTRATOR,Administrator")]
+    [Authorize(Roles = "ADMINISTRATOR,APPROVER")]
     public async Task<ActionResult<ApiResponse<MediaResponse>>> Reject(Guid id, [FromBody] ReviewMediaRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetScope(out var organizationId, out var facilityId) || !TryGetUserId(out var userId)) return Forbid();

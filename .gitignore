@@ -16,3 +16,5 @@
 ## OS generated files
 .DS_Store
 Thumbs.db
+
+/MTC_System/App_Data/MediaUploads/
