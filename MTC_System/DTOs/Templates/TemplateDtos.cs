@@ -40,6 +40,7 @@ public sealed class TemplateResponse
     public bool IsActive { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+    public string? CreatedByName { get; set; }
     public IReadOnlyList<TemplateZoneResponse> Zones { get; set; } = [];
 }
 

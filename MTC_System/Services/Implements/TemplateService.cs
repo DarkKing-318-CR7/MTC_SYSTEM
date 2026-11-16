@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Linq.Expressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using MTC_System.Common;
@@ -47,14 +48,16 @@ public sealed class TemplateService : ITemplateService
         var templates = await query.Include(x => x.Zones.Where(z => !z.IsDeleted))
             .OrderBy(x => x.TemplateName)
             .ToListAsync(cancellationToken);
-        return templates.Select(Map).ToList();
+        var creatorNames = await GetCreatorNamesAsync(templates, cancellationToken);
+        return templates.Select(template => Map(template,
+            template.CreatedBy.HasValue && creatorNames.TryGetValue((template.OrganizationId, template.CreatedBy.Value), out var creatorName) ? creatorName : null)).ToList();
     }
 
     public async Task<TemplateResponse> GetByIdAsync(Guid id, UserScopeContext userScope, CancellationToken cancellationToken)
     {
         var template = await FindAsync(id, cancellationToken);
         await EnsureCanAccessAsync(userScope, template.OrganizationId, template.FacilityId, cancellationToken);
-        return Map(template);
+        return Map(template, await GetCreatorNameAsync(template.CreatedBy, template.OrganizationId, cancellationToken));
     }
 
     public async Task<TemplateResponse> CreateAsync(TemplateUpsertRequest request, UserScopeContext userScope, CancellationToken cancellationToken)
@@ -80,7 +83,7 @@ public sealed class TemplateService : ITemplateService
 
         _db.Templates.Add(template);
         await _db.SaveChangesAsync(cancellationToken);
-        return Map(template);
+        return Map(template, await GetCreatorNameAsync(template.CreatedBy, template.OrganizationId, cancellationToken));
     }
 
     public async Task<TemplateResponse> UpdateAsync(Guid id, TemplateUpsertRequest request, UserScopeContext userScope, CancellationToken cancellationToken)
@@ -127,7 +130,7 @@ public sealed class TemplateService : ITemplateService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return Map(template);
+        return Map(template, await GetCreatorNameAsync(template.CreatedBy, template.OrganizationId, cancellationToken));
     }
 
     public async Task DeleteAsync(Guid id, UserScopeContext userScope, CancellationToken cancellationToken)
@@ -248,7 +251,57 @@ public sealed class TemplateService : ITemplateService
         return string.Join(',', normalized);
     }
 
-    private static TemplateResponse Map(Template template) => new()
+    private async Task<Dictionary<(Guid OrganizationId, Guid UserId), string>> GetCreatorNamesAsync(
+        IReadOnlyCollection<Template> templates,
+        CancellationToken cancellationToken)
+    {
+        var creatorPairs = templates.Where(template => template.CreatedBy.HasValue)
+            .Select(template => (template.OrganizationId, UserId: template.CreatedBy!.Value))
+            .Distinct().ToArray();
+        if (creatorPairs.Length == 0) return [];
+
+        var userParameter = Expression.Parameter(typeof(User), "user");
+        Expression predicate = Expression.Constant(false);
+        var idProperty = Expression.Property(userParameter, nameof(User.Id));
+        var organizationProperty = Expression.Property(userParameter, nameof(User.OrganizationId));
+        var deletedProperty = Expression.Property(userParameter, nameof(User.IsDeleted));
+        foreach (var pair in creatorPairs)
+        {
+            var matchingId = Expression.Equal(idProperty, Expression.Constant(pair.UserId));
+            var matchingOrganization = Expression.OrElse(
+                Expression.Equal(organizationProperty, Expression.Constant((Guid?)pair.OrganizationId, typeof(Guid?))),
+                Expression.Equal(organizationProperty, Expression.Constant(null, typeof(Guid?))));
+            var matchingRecord = Expression.AndAlso(
+                Expression.AndAlso(matchingId, Expression.Not(deletedProperty)), matchingOrganization);
+            predicate = Expression.OrElse(predicate, matchingRecord);
+        }
+
+        var scopedUsers = await _db.Users.AsNoTracking()
+            .Where(Expression.Lambda<Func<User, bool>>(predicate, userParameter))
+            .Select(user => new { user.Id, user.OrganizationId, user.FullName })
+            .ToListAsync(cancellationToken);
+        var names = new Dictionary<(Guid OrganizationId, Guid UserId), string>();
+        foreach (var pair in creatorPairs)
+        {
+            var user = scopedUsers.FirstOrDefault(candidate => candidate.Id == pair.UserId && candidate.OrganizationId == pair.OrganizationId)
+                ?? scopedUsers.FirstOrDefault(candidate => candidate.Id == pair.UserId && candidate.OrganizationId is null);
+            if (user is not null) names[pair] = user.FullName;
+        }
+        return names;
+    }
+
+    private async Task<string?> GetCreatorNameAsync(Guid? creatorId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (!creatorId.HasValue) return null;
+        return await _db.Users.AsNoTracking()
+            .Where(user => user.Id == creatorId.Value && !user.IsDeleted &&
+                (user.OrganizationId == organizationId || user.OrganizationId == null))
+            .OrderByDescending(user => user.OrganizationId == organizationId)
+            .Select(user => user.FullName)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static TemplateResponse Map(Template template, string? createdByName) => new()
     {
         Id = template.Id,
         OrganizationId = template.OrganizationId,
@@ -261,6 +314,7 @@ public sealed class TemplateService : ITemplateService
         IsActive = template.IsActive,
         CreatedAt = template.CreatedAt,
         UpdatedAt = template.UpdatedAt,
+        CreatedByName = createdByName,
         Zones = template.Zones.Where(x => !x.IsDeleted).OrderBy(x => x.ZIndex).ThenBy(x => x.Id).Select(x => new TemplateZoneResponse
         {
             Id = x.Id,
