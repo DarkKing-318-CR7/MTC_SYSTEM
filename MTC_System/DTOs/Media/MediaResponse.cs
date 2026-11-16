@@ -15,6 +15,12 @@ public sealed class MediaResponse
     public string? HlsPlaybackUrl { get; set; }
     public string ApprovalStatus { get; set; } = string.Empty;
     public string? RejectionReason { get; set; }
+    public Guid? ApprovedBy { get; set; }
+    public string? ApprovedByName { get; set; }
+    public DateTimeOffset? ApprovedAt { get; set; }
+    public Guid? RejectedBy { get; set; }
+    public string? RejectedByName { get; set; }
+    public DateTime? RejectedAt { get; set; }
     public string? Url { get; set; }
     public string? SourceUrl { get; set; }
     public decimal? FrequencyHz { get; set; }
@@ -22,6 +28,8 @@ public sealed class MediaResponse
     public Guid OrganizationId { get; set; }
     public Guid FacilityId { get; set; }
     public Guid? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+    public IReadOnlyList<string> SharedFacilityNames { get; set; } = Array.Empty<string>();
 }

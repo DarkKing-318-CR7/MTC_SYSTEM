@@ -50,6 +50,9 @@ namespace MTC_System.Models
         public DateTime? RejectedAt { get; set; }         // Dev 5 dùng để auto-xóa sau 24h (USR-MED-08)
         public Guid? RejectedBy { get; set; }
 
+        public Guid? ApprovedBy { get; set; }
+        public DateTimeOffset? ApprovedAt { get; set; }
+
         /// <summary>true nếu media được cơ sở cha chia sẻ xuống (hiển thị icon chia sẻ ở UI)</summary>
         public bool IsSharedFromParent { get; set; } = false;
 

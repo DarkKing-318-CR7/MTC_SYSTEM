@@ -1089,6 +1089,12 @@ namespace MTC_System.Migrations
                         .HasColumnType("character varying(50)")
                         .HasDefaultValue("Chờ duyệt");
 
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uuid");
 
@@ -1140,11 +1146,11 @@ namespace MTC_System.Migrations
                     b.Property<long>("HlsOutputSizeBytes")
                         .HasColumnType("bigint");
 
-                    b.Property<DateTimeOffset?>("HlsProcessingStartedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<Guid?>("HlsProcessingAttemptId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("HlsProcessingStartedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("HlsRelativePath")
                         .HasMaxLength(1000)
