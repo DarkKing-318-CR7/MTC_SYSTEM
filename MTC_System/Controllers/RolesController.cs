@@ -10,7 +10,6 @@ namespace MTC_System.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class RolesController : ControllerBase
     {
         private readonly IRoleService _roleService;
