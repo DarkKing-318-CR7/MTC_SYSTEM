@@ -36,12 +36,7 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
     {
         _db = db;
         _logger = logger;
-        var configuredRoot = configuration["MediaUpload:StorageRoot"] ?? "App_Data/MediaUploads";
-        if (Path.IsPathRooted(configuredRoot)) throw new InvalidOperationException("MediaUpload:StorageRoot must be relative to the application content root.");
-        var contentRoot = Path.GetFullPath(environment.ContentRootPath) + Path.DirectorySeparatorChar;
-        _storageRoot = Path.GetFullPath(Path.Combine(environment.ContentRootPath, configuredRoot));
-        if (!_storageRoot.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("MediaUpload:StorageRoot must remain inside the application content root.");
+        _storageRoot = MediaStoragePathResolver.ResolveStorageRoot(configuration, environment);
 
         _chunkSize = int.TryParse(configuration["MediaUpload:ChunkSizeBytes"], out var configuredChunkSize)
             ? configuredChunkSize : DefaultChunkSize;
@@ -210,6 +205,13 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                 throw new MediaUploadException(StatusCodes.Status409Conflict, "Upload is incomplete; all chunks must be received before finalization.");
 
             var metadata = await ReadMetadataAsync(GetSessionDirectory(id), cancellationToken);
+            var organization = await _db.Organizations.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == metadata.OrganizationId && !x.IsDeleted, cancellationToken);
+            var facility = await _db.Facilities.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == metadata.FacilityId && x.OrganizationId == metadata.OrganizationId && x.IsActive && !x.IsDeleted, cancellationToken);
+            if (organization is null || facility is null)
+                throw new MediaUploadException(StatusCodes.Status409Conflict, "The upload organization or facility is no longer available or is not related correctly.");
+
             var directory = GetSessionDirectory(id);
             var assemblingPath = Path.Combine(directory, $"assembling-{Guid.NewGuid():N}.tmp");
             CleanupAssemblyFiles(directory);
@@ -227,9 +229,12 @@ public sealed class ChunkedMediaUploadSvc : IChunkedMediaUploadSvc
                 var mediaId = session.Id;
                 var extension = Path.GetExtension(session.ExpectedFileName).ToLowerInvariant();
                 await MediaFileContentValidator.ValidateAsync(extension, assemblingPath, cancellationToken);
-                var publishedDirectory = Path.Combine(_storageRoot, "media", metadata.OrganizationId.ToString("N"), metadata.FacilityId.ToString("N"));
-                var relativeFile = $"media/{metadata.OrganizationId:N}/{metadata.FacilityId:N}/{mediaId:N}{extension}";
-                publishedPath = Path.Combine(publishedDirectory, $"{mediaId:N}{extension}");
+                var organizationFolder = $"{MediaDirectoryNameSanitizer.Sanitize(organization.OrganizationName, "organization")}__{organization.Id:N}";
+                var facilityFolder = $"{MediaDirectoryNameSanitizer.Sanitize(facility.FacilityName, "facility")}__{facility.Id:N}";
+                var relativeFile = $"media/{organizationFolder}/{facilityFolder}/{mediaId:N}{extension}";
+                if (relativeFile.Length > 1000)
+                    throw new InvalidOperationException("The generated Media.FilePath exceeds its configured maximum length.");
+                publishedPath = MediaStoragePathResolver.ResolveUnderRoot(_storageRoot, relativeFile);
                 Directory.CreateDirectory(Path.GetDirectoryName(publishedPath)!);
                 if (File.Exists(publishedPath)) TryDeleteFile(publishedPath);
                 File.Move(assemblingPath, publishedPath);
