@@ -19,6 +19,7 @@ namespace MTC_System.Models
 
         /// <summary>Trạng thái: "Đang hoạt động" | "Hết hạn" | "Đã hủy"</summary>
         public string Status { get; set; } = "Đang hoạt động";
+        public bool AutoRenew { get; set; } = true;
 
         // ------- "GÓI KHÁC" NHẬP TAY (Khi PackageId = null - SYS-ORG-09) -------
         public int? CustomStorageGB { get; set; }

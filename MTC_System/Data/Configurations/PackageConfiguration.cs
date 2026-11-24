@@ -18,6 +18,9 @@ namespace MTC_System.Data.Configurations
             builder.Property(p => p.PackageName).IsRequired().HasMaxLength(255);
             builder.Property(p => p.Description).HasMaxLength(1000);
             builder.Property(p => p.PricePerMonth).HasPrecision(18, 2);
+            builder.HasIndex(p => p.MaxStorageGB).IsUnique()
+                .HasFilter("\"IsCustom\" = false AND \"IsDeleted\" = false");
+            builder.HasIndex(p => new { p.DurationMonths, p.RegistrationStartsAt, p.RegistrationEndsAt });
 
             // SEED: 3 gói cước bán sẵn mặc định
             builder.HasData(
@@ -31,9 +34,11 @@ namespace MTC_System.Data.Configurations
                     MaxDevices = 5,
                     MaxStorageGB = 50,
                     DurationMonths = 1,
+                    RegistrationStartsAt = new DateTimeOffset(2026, 10, 22, 0, 0, 0, TimeSpan.Zero),
+                    RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2859), TimeSpan.Zero)
                 },
                 new Package
                 {
@@ -45,9 +50,11 @@ namespace MTC_System.Data.Configurations
                     MaxDevices = 20,
                     MaxStorageGB = 200,
                     DurationMonths = 6,
+                    RegistrationStartsAt = new DateTimeOffset(2026, 10, 22, 0, 0, 0, TimeSpan.Zero),
+                    RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2863), TimeSpan.Zero)
                 },
                 new Package
                 {
@@ -59,9 +66,11 @@ namespace MTC_System.Data.Configurations
                     MaxDevices = 100,
                     MaxStorageGB = 1000,
                     DurationMonths = 12,
+                    RegistrationStartsAt = new DateTimeOffset(2026, 10, 22, 0, 0, 0, TimeSpan.Zero),
+                    RegistrationEndsAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.FromHours(7)),
                     IsActive = true,
                     IsCustom = false,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 2, 4, 4, 42, 756, DateTimeKind.Unspecified).AddTicks(2867), TimeSpan.Zero)
                 }
             );
         }

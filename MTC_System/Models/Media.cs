@@ -14,12 +14,28 @@ namespace MTC_System.Models
         public string FileName { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
 
-        /// <summary>Loại media: Video, Audio, Image, Hz_FM, Stream, URL</summary>
+        /// <summary>Loại nội dung: Image, Audio, Video, LiveStream hoặc Frequency.</summary>
         public string FileType { get; set; } = string.Empty;
+
+        /// <summary>Phương thức tạo nguồn, độc lập với loại nội dung media.</summary>
+        public MediaSourceMethod SourceType { get; set; } = MediaSourceMethod.File;
 
         public long FileSize { get; set; } = 0;           // Dung lượng thực tế (bytes)
         public long SizeInBytes { get; set; } = 0;        // Phục vụ báo cáo dung lượng SYS-RPT-04
         public int DurationSeconds { get; set; } = 0;     // Thời lượng phát (giây)
+
+        public string HlsStatus { get; set; } = "NotRequired";
+
+        public string? HlsRelativePath { get; set; }
+
+        public long HlsOutputSizeBytes { get; set; }
+
+        public DateTimeOffset? HlsProcessingStartedAt { get; set; }
+
+        public Guid? HlsProcessingAttemptId { get; set; }
+
+        public string? HlsFailureCode { get; set; }
+
 
         public string? ChecksumMd5 { get; set; }          // MD5/SHA256 để thiết bị đối chiếu (MTT-FILE-005)
         public string? ChecksumSha256 { get; set; }
@@ -34,11 +50,15 @@ namespace MTC_System.Models
         public DateTime? RejectedAt { get; set; }         // Dev 5 dùng để auto-xóa sau 24h (USR-MED-08)
         public Guid? RejectedBy { get; set; }
 
+        public Guid? ApprovedBy { get; set; }
+        public DateTimeOffset? ApprovedAt { get; set; }
+
         /// <summary>true nếu media được cơ sở cha chia sẻ xuống (hiển thị icon chia sẻ ở UI)</summary>
         public bool IsSharedFromParent { get; set; } = false;
 
-        public string? Url { get; set; }                  // Dùng khi FileType = URL hoặc Stream
-        public string? FrequencyHz { get; set; }          // Dùng khi FileType = Hz_FM
+        public string? Url { get; set; }                  // External playback URL for a live stream
+        public string? SourceUrl { get; set; }             // Original URL used to download a finite media file
+        public decimal? FrequencyHz { get; set; }          // Numeric frequency metadata
 
         // Khóa ngoại sang danh mục lĩnh vực
         public Guid? CategoryId { get; set; }

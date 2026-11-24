@@ -16,7 +16,7 @@ namespace MTC_System.Models
         public string ActionType { get; set; } = string.Empty;
 
         public string? ActionDetail { get; set; }  // JSON chi tiết tham số (volume=75, ...)
-        public string? ErrorCodeRef { get; set; }  // Mã lỗi liên quan (MTT-001...)
+        public string? ErrorCodeRef { get; set; }  // Mã lỗi liên quan (ví dụ: MTT-CLOCK-001)
         public string? IpAddress { get; set; }
 
         /// <summary>Kết quả: "Thành công" | "Thất bại"</summary>

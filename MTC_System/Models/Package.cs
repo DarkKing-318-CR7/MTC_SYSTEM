@@ -18,6 +18,9 @@ namespace MTC_System.Models
         /// <summary>Kỳ hạn: 1 | 6 | 12 (tháng)</summary>
         public int DurationMonths { get; set; } = 1;
 
+        public DateTimeOffset RegistrationStartsAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset RegistrationEndsAt { get; set; } = DateTimeOffset.MaxValue;
+
         public bool IsActive { get; set; } = true;
         public bool IsCustom { get; set; } = false;         // true = "Gói khác" nhập tay
     }

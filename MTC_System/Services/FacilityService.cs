@@ -205,5 +205,39 @@ namespace MTC_System.Services
 
             return ApiResponse<bool>.Ok(true, "Đã xóa cơ sở thành công");
         }
+
+        // Lấy danh sách ID của cơ sở và toàn bộ các cơ sở con/cháu bên dưới (phục vụ lọc phân quyền địa bàn)
+        public async Task<ApiResponse<List<Guid>>> GetDescendantFacilityIdsAsync(Guid facilityId)
+        {
+            var facility = await _context.Facilities
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == facilityId && !f.IsDeleted);
+
+            if (facility == null)
+            {
+                return ApiResponse<List<Guid>>.Fail("Không tìm thấy cơ sở.");
+            }
+
+            var allOrgFacilities = await _context.Facilities
+                .AsNoTracking()
+                .Where(f => f.OrganizationId == facility.OrganizationId && !f.IsDeleted)
+                .Select(f => new { f.Id, f.ParentId })
+                .ToListAsync();
+
+            var result = new List<Guid> { facilityId };
+
+            void CollectChildren(Guid parentId)
+            {
+                var children = allOrgFacilities.Where(f => f.ParentId == parentId).Select(f => f.Id).ToList();
+                foreach (var childId in children)
+                {
+                    result.Add(childId);
+                    CollectChildren(childId);
+                }
+            }
+
+            CollectChildren(facilityId);
+            return ApiResponse<List<Guid>>.Ok(result);
+        }
     }
 }

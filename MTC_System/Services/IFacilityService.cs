@@ -14,5 +14,6 @@ namespace MTC_System.Services
         Task<ApiResponse<FacilityResponseDto>> CreateAsync(CreateFacilityDto dto);
         Task<ApiResponse<FacilityResponseDto>> UpdateAsync(Guid id, UpdateFacilityDto dto);
         Task<ApiResponse<bool>> DeleteAsync(Guid id);
+        Task<ApiResponse<List<Guid>>> GetDescendantFacilityIdsAsync(Guid facilityId);
     }
 }
