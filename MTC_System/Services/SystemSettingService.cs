@@ -42,8 +42,18 @@ namespace MTC_System.Services
             return ApiResponse<List<SystemSettingResponseDto>>.Ok(settings);
         }
 
-        public async Task<ApiResponse<OrganizationBroadcastSettingDto>> GetBroadcastSettingAsync(Guid organizationId)
+        public async Task<ApiResponse<OrganizationBroadcastSettingDto>> GetBroadcastSettingAsync(
+            Guid organizationId,
+            Guid? requestingFacilityId = null,
+            bool isSystemAdmin = false)
         {
+            // QUY TẮC: "Chỉ hiển thị ở cấp Tổ chức cao nhất và áp dụng cho toàn bộ tổ chức"
+            if (requestingFacilityId.HasValue && !isSystemAdmin)
+            {
+                return ApiResponse<OrganizationBroadcastSettingDto>.Fail(
+                    "Thiết lập hệ thống chỉ hiển thị ở cấp Tổ chức cao nhất và áp dụng cho toàn bộ tổ chức. Tài khoản cấp cơ sở không có quyền truy cập!");
+            }
+
             var org = await _context.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId && !o.IsDeleted);
             if (org == null)
             {
@@ -58,24 +68,56 @@ namespace MTC_System.Services
 
             var result = new OrganizationBroadcastSettingDto
             {
+                OrganizationId = org.Id,
+                OrganizationName = org.OrganizationName,
                 BroadcastMode = settings.TryGetValue(KEY_BROADCAST_MODE, out var mode) ? mode : "Phát theo cơ sở",
-                Timezone = settings.TryGetValue(KEY_TIMEZONE, out var tz) ? tz : "SE Asia Standard Time"
+                Timezone = settings.TryGetValue(KEY_TIMEZONE, out var tz) ? tz : "SE Asia Standard Time",
+                IsRootOrganizationLevel = true,
+                CanEdit = true
             };
 
             return ApiResponse<OrganizationBroadcastSettingDto>.Ok(result);
         }
 
-        public async Task<ApiResponse<OrganizationBroadcastSettingDto>> UpdateBroadcastSettingAsync(Guid organizationId, OrganizationBroadcastSettingDto dto)
+        public async Task<ApiResponse<OrganizationBroadcastSettingDto>> UpdateBroadcastSettingAsync(
+            Guid organizationId,
+            OrganizationBroadcastSettingDto dto,
+            Guid? requestingFacilityId = null,
+            bool isSystemAdmin = false)
         {
+            // QUY TẮC: "Chỉ hiển thị ở cấp Tổ chức cao nhất và áp dụng cho toàn bộ tổ chức"
+            if (requestingFacilityId.HasValue && !isSystemAdmin)
+            {
+                return ApiResponse<OrganizationBroadcastSettingDto>.Fail(
+                    "Thiết lập hệ thống chỉ được phép cấu hình ở cấp Tổ chức cao nhất. Tài khoản cấp cơ sở không có quyền cập nhật!");
+            }
+
             var org = await _context.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId && !o.IsDeleted);
             if (org == null)
             {
                 return ApiResponse<OrganizationBroadcastSettingDto>.Fail("Tổ chức không tồn tại!");
             }
 
-            if (dto.BroadcastMode != "Phát theo cơ sở" && dto.BroadcastMode != "Phát theo thiết bị")
+            var rawMode = dto.BroadcastMode?.Trim() ?? string.Empty;
+            string normalizedMode;
+            if (rawMode.Equals("Phát theo cơ sở", StringComparison.OrdinalIgnoreCase))
             {
-                return ApiResponse<OrganizationBroadcastSettingDto>.Fail("Chế độ phát chỉ chấp nhận 'Phát theo cơ sở' hoặc 'Phát theo thiết bị'!");
+                normalizedMode = "Phát theo cơ sở";
+            }
+            else if (rawMode.Equals("Phát theo thiết bị", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedMode = "Phát theo thiết bị";
+            }
+            else
+            {
+                return ApiResponse<OrganizationBroadcastSettingDto>.Fail(
+                    "Chế độ tạo bản tin không hợp lệ! Chỉ chấp nhận 'Phát theo cơ sở' hoặc 'Phát theo thiết bị'.");
+            }
+
+            var timezone = dto.Timezone?.Trim();
+            if (string.IsNullOrWhiteSpace(timezone))
+            {
+                timezone = "SE Asia Standard Time";
             }
 
             // 1. Cập nhật BROADCAST_MODE
@@ -88,14 +130,14 @@ namespace MTC_System.Services
                 {
                     OrganizationId = organizationId,
                     SettingKey = KEY_BROADCAST_MODE,
-                    SettingValue = dto.BroadcastMode,
-                    Description = "Chế độ phát bản tin: Phát theo cơ sở hoặc Phát theo thiết bị (Issue #12)",
+                    SettingValue = normalizedMode,
+                    Description = "Chế độ tạo bản tin: Phát theo cơ sở hoặc Phát theo thiết bị (Cấp tổ chức cao nhất)",
                     CreatedAt = DateTimeOffset.UtcNow
                 });
             }
             else
             {
-                modeSetting.SettingValue = dto.BroadcastMode;
+                modeSetting.SettingValue = normalizedMode;
                 modeSetting.UpdatedAt = DateTimeOffset.UtcNow;
             }
 
@@ -109,19 +151,30 @@ namespace MTC_System.Services
                 {
                     OrganizationId = organizationId,
                     SettingKey = KEY_TIMEZONE,
-                    SettingValue = dto.Timezone,
-                    Description = "Múi giờ mặc định của tổ chức (Issue #12)",
+                    SettingValue = timezone,
+                    Description = "Múi giờ chuẩn của tổ chức (Cấp tổ chức cao nhất)",
                     CreatedAt = DateTimeOffset.UtcNow
                 });
             }
             else
             {
-                tzSetting.SettingValue = dto.Timezone;
+                tzSetting.SettingValue = timezone;
                 tzSetting.UpdatedAt = DateTimeOffset.UtcNow;
             }
 
             await _context.SaveChangesAsync();
-            return await GetBroadcastSettingAsync(organizationId);
+
+            var updatedResult = new OrganizationBroadcastSettingDto
+            {
+                OrganizationId = org.Id,
+                OrganizationName = org.OrganizationName,
+                BroadcastMode = normalizedMode,
+                Timezone = timezone,
+                IsRootOrganizationLevel = true,
+                CanEdit = true
+            };
+
+            return ApiResponse<OrganizationBroadcastSettingDto>.Ok(updatedResult, "Cập nhật thiết lập hệ thống tổ chức thành công");
         }
 
         public async Task<ApiResponse<UserPersonalSettingDto>> GetUserPersonalSettingAsync(Guid userId)
@@ -131,6 +184,8 @@ namespace MTC_System.Services
             {
                 return ApiResponse<UserPersonalSettingDto>.Fail("Người dùng không tồn tại!");
             }
+
+            var displayName = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : user.Username;
 
             var settingKey = $"{PREFIX_USER_SETTING}{userId}";
             var setting = await _context.SystemSettings
@@ -145,6 +200,7 @@ namespace MTC_System.Services
                     if (parsed != null)
                     {
                         parsed.UserId = userId;
+                        parsed.Username = displayName;
                         return ApiResponse<UserPersonalSettingDto>.Ok(parsed);
                     }
                 }
@@ -157,6 +213,7 @@ namespace MTC_System.Services
             return ApiResponse<UserPersonalSettingDto>.Ok(new UserPersonalSettingDto
             {
                 UserId = userId,
+                Username = displayName,
                 Timezone = "SE Asia Standard Time",
                 BroadcastViewMode = "Table"
             });
@@ -170,21 +227,50 @@ namespace MTC_System.Services
                 return ApiResponse<UserPersonalSettingDto>.Fail("Người dùng không tồn tại!");
             }
 
-            if (dto.BroadcastViewMode != "Table" && dto.BroadcastViewMode != "Calendar")
+            // Chuẩn hóa chế độ xem bản tin: dạng bảng / dạng lịch
+            var rawViewMode = dto.BroadcastViewMode?.Trim() ?? "Table";
+            string normalizedViewMode;
+
+            if (rawViewMode.Equals("Table", StringComparison.OrdinalIgnoreCase) ||
+                rawViewMode.Equals("Bảng", StringComparison.OrdinalIgnoreCase) ||
+                rawViewMode.Equals("Dạng bảng", StringComparison.OrdinalIgnoreCase) ||
+                rawViewMode.Equals("Grid", StringComparison.OrdinalIgnoreCase))
             {
-                return ApiResponse<UserPersonalSettingDto>.Fail("Chế độ xem bản tin chỉ chấp nhận 'Table' (dạng bảng) hoặc 'Calendar' (dạng lịch)!");
+                normalizedViewMode = "Table";
+            }
+            else if (rawViewMode.Equals("Calendar", StringComparison.OrdinalIgnoreCase) ||
+                     rawViewMode.Equals("Lịch", StringComparison.OrdinalIgnoreCase) ||
+                     rawViewMode.Equals("Dạng lịch", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedViewMode = "Calendar";
+            }
+            else
+            {
+                return ApiResponse<UserPersonalSettingDto>.Fail(
+                    "Chế độ xem bản tin không hợp lệ! Chỉ chấp nhận dạng bảng ('Table' / 'Dạng bảng') hoặc dạng lịch ('Calendar' / 'Dạng lịch').");
+            }
+
+            dto.BroadcastViewMode = normalizedViewMode;
+            if (string.IsNullOrWhiteSpace(dto.Timezone))
+            {
+                dto.Timezone = "SE Asia Standard Time";
             }
 
             var orgId = user.OrganizationId ?? Guid.Empty;
             if (orgId == Guid.Empty)
             {
-                // Nếu là System Admin, lấy tổ chức đầu tiên hoặc Guid.Empty
                 var firstOrg = await _context.Organizations.FirstOrDefaultAsync(o => !o.IsDeleted);
                 if (firstOrg != null) orgId = firstOrg.Id;
             }
 
             var settingKey = $"{PREFIX_USER_SETTING}{dto.UserId}";
-            var jsonValue = JsonSerializer.Serialize(dto);
+            var jsonValue = JsonSerializer.Serialize(new UserPersonalSettingDto
+            {
+                UserId = dto.UserId,
+                Username = user.FullName ?? user.Username,
+                Timezone = dto.Timezone,
+                BroadcastViewMode = normalizedViewMode
+            });
 
             var setting = await _context.SystemSettings
                 .FirstOrDefaultAsync(s => s.SettingKey == settingKey && !s.IsDeleted);
@@ -196,7 +282,7 @@ namespace MTC_System.Services
                     OrganizationId = orgId,
                     SettingKey = settingKey,
                     SettingValue = jsonValue,
-                    Description = $"Cấu hình cá nhân người dùng {user.Username} (Issue #12 - USR-SET)",
+                    Description = $"Cấu hình cá nhân người dùng {user.Username} (Múi giờ & Chế độ xem bản tin)",
                     CreatedAt = DateTimeOffset.UtcNow
                 });
             }
@@ -207,7 +293,30 @@ namespace MTC_System.Services
             }
 
             await _context.SaveChangesAsync();
+
+            dto.Username = user.FullName ?? user.Username;
             return ApiResponse<UserPersonalSettingDto>.Ok(dto, "Cập nhật cấu hình cá nhân thành công");
+        }
+
+        public Task<ApiResponse<List<TimezoneItemDto>>> GetAvailableTimezonesAsync()
+        {
+            var popularTimezones = new List<TimezoneItemDto>
+            {
+                new() { Id = "SE Asia Standard Time", DisplayName = "(UTC+07:00) Bangkok, Hanoi, Jakarta", UtcOffset = "+07:00" },
+                new() { Id = "Asia/Ho_Chi_Minh", DisplayName = "(UTC+07:00) Vietnam (Hanoi, Ho Chi Minh)", UtcOffset = "+07:00" },
+                new() { Id = "Singapore Standard Time", DisplayName = "(UTC+08:00) Singapore, Kuala Lumpur", UtcOffset = "+08:00" },
+                new() { Id = "Tokyo Standard Time", DisplayName = "(UTC+09:00) Osaka, Sapporo, Tokyo", UtcOffset = "+09:00" },
+                new() { Id = "UTC", DisplayName = "(UTC+00:00) Coordinated Universal Time", UtcOffset = "+00:00" },
+                new() { Id = "Korea Standard Time", DisplayName = "(UTC+09:00) Seoul", UtcOffset = "+09:00" },
+                new() { Id = "China Standard Time", DisplayName = "(UTC+08:00) Beijing, Chongqing, Hong Kong", UtcOffset = "+08:00" },
+                new() { Id = "India Standard Time", DisplayName = "(UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi", UtcOffset = "+05:30" },
+                new() { Id = "GMT Standard Time", DisplayName = "(UTC+00:00) Dublin, Edinburgh, Lisbon, London", UtcOffset = "+00:00" },
+                new() { Id = "W. Europe Standard Time", DisplayName = "(UTC+01:00) Amsterdam, Berlin, Bern, Rome, Paris", UtcOffset = "+01:00" },
+                new() { Id = "Eastern Standard Time", DisplayName = "(UTC-05:00) Eastern Time (US & Canada)", UtcOffset = "-05:00" },
+                new() { Id = "Pacific Standard Time", DisplayName = "(UTC-08:00) Pacific Time (US & Canada)", UtcOffset = "-08:00" }
+            };
+
+            return Task.FromResult(ApiResponse<List<TimezoneItemDto>>.Ok(popularTimezones));
         }
     }
 }

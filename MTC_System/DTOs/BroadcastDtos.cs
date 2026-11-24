@@ -38,11 +38,16 @@ namespace MTC_System.DTOs
         [Required(ErrorMessage = "FacilityId là bắt buộc")]
         public Guid FacilityId { get; set; }
 
+        /// <summary>Chế độ phát: "Phát theo lịch" | "Phát ngay sau khi phê duyệt"</summary>
+        public string PlayMode { get; set; } = "Phát theo lịch";
+
         /// <summary>Cờ cho phép ghi đè (Overwrite = true) khi phát hiện trùng lịch (USR-BRD-02 / Issue #15)</summary>
         public bool Overwrite { get; set; } = false;
 
         /// <summary>Lịch phát đi kèm khi tạo bản tin (tùy chọn)</summary>
         public List<CreateBroadcastScheduleDto>? Schedules { get; set; }
+
+        public Guid? CreatedBy { get; set; }
     }
 
     public class UpdateBroadcastDto
@@ -57,11 +62,17 @@ namespace MTC_System.DTOs
         public string BroadcastType { get; set; } = "Thường";
         public int Priority { get; set; } = 2;
 
+        /// <summary>Chế độ phát: "Phát theo lịch" | "Phát ngay sau khi phê duyệt"</summary>
+        public string PlayMode { get; set; } = "Phát theo lịch";
+
         [Required(ErrorMessage = "Loại nội dung là bắt buộc")]
         public string ContentType { get; set; } = string.Empty;
 
         public Guid? MediaId { get; set; }
         public Guid? PlaylistId { get; set; }
+
+        /// <summary>Cập nhật danh sách lịch phát (tùy chọn)</summary>
+        public List<CreateBroadcastScheduleDto>? Schedules { get; set; }
     }
 
     /// <summary>USR-BRD-06: Duyệt bản tin</summary>
@@ -105,6 +116,7 @@ namespace MTC_System.DTOs
         public string BroadcastType { get; set; } = string.Empty;
         public int Priority { get; set; }
         public string Status { get; set; } = string.Empty;
+        public string PlayMode { get; set; } = "Phát theo lịch";
         public string ContentType { get; set; } = string.Empty;
         public Guid OrganizationId { get; set; }
         public Guid FacilityId { get; set; }
@@ -113,6 +125,22 @@ namespace MTC_System.DTOs
         public Guid? ApprovedBy { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public int TotalSchedules { get; set; }
+
+        /// <summary>Hình thức tạo bản tin theo UI: "Bản tin tiêu chuẩn" | "Bản tin nhanh"</summary>
+        public string BroadcastForm { get; set; } = "Bản tin tiêu chuẩn";
+
+        /// <summary>Hiển thị loại bản tin theo UI: "Tin thường" | "Tin ưu tiên"</summary>
+        public string BroadcastTypeDisplay { get; set; } = "Tin thường";
+
+        /// <summary>Khoảng ngày phát (VD: "02/03/2022 - 02/03/2022" hoặc "-")</summary>
+        public string BroadcastDates { get; set; } = "-";
+
+        /// <summary>Khung giờ phát (VD: "12:00:00 - 12:15:00" hoặc "-")</summary>
+        public string BroadcastTimes { get; set; } = "-";
+
+        /// <summary>Tên người tạo (VD: "Nguyễn Văn A")</summary>
+        public string? CreatedByName { get; set; }
+        public Guid? CreatedBy { get; set; }
 
         // ================= ACTION PERMISSIONS (USR-BRD-01) =================
         public bool CanEdit { get; set; }
@@ -135,6 +163,8 @@ namespace MTC_System.DTOs
         public string BroadcastType { get; set; } = string.Empty;
         public int Priority { get; set; }
         public string Status { get; set; } = string.Empty;
+        public string PlayMode { get; set; } = "Phát theo lịch";
+        public bool IsDurationLocked { get; set; } = false;
         public string? RejectionReason { get; set; }
         public string ContentType { get; set; } = string.Empty;
         public Guid? MediaId { get; set; }
@@ -229,6 +259,9 @@ namespace MTC_System.DTOs
         public TimeSpan EndTime { get; set; }
 
         public int DurationSeconds { get; set; } = 0;
+
+        /// <summary>Số lần phát lặp lại trong khung giờ (USR-BRD-02)</summary>
+        public int RepeatCount { get; set; } = 1;
     }
 
     public class BroadcastTimeSlotResponseDto
@@ -238,6 +271,9 @@ namespace MTC_System.DTOs
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
         public int DurationSeconds { get; set; }
+
+        /// <summary>Số lần phát lặp lại trong khung giờ</summary>
+        public int RepeatCount { get; set; } = 1;
     }
 
     // =========================================================
@@ -267,6 +303,13 @@ namespace MTC_System.DTOs
         public List<Guid>? DeviceIds { get; set; }
         public DateTimeOffset StartDate { get; set; }
         public DateTimeOffset EndDate { get; set; }
+
+        /// <summary>"Không lặp" | "Lặp hàng ngày" / "Hàng ngày" | "Lặp theo tuần" / "Theo tuần" | "Lặp theo tháng" / "Theo tháng"</summary>
+        public string RepeatType { get; set; } = "Không lặp";
+
+        /// <summary>"2,3,4,5,6,7,CN" hoặc "1,15,28"</summary>
+        public string? RepeatDays { get; set; }
+
         public List<CreateBroadcastTimeSlotDto> TimeSlots { get; set; } = new List<CreateBroadcastTimeSlotDto>();
         public Guid? ExcludeBroadcastId { get; set; }
     }
@@ -298,5 +341,11 @@ namespace MTC_System.DTOs
         public DateTimeOffset ConflictStartDate { get; set; }
         public DateTimeOffset ConflictEndDate { get; set; }
         public int ConflictDurationMinutes { get; set; }
+
+        /// <summary>Thời điểm trùng lịch gần nhất (Nearest conflict timestamp)</summary>
+        public DateTimeOffset? NearestConflictTime { get; set; }
+
+        /// <summary>Thời lượng trùng lịch gần nhất (phút)</summary>
+        public int NearestConflictDurationMinutes { get; set; }
     }
 }

@@ -274,6 +274,11 @@ app.UseExceptionHandler(errorApp =>
     errorApp.Run(async context =>
     {
         var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        if (exception != null)
+        {
+            app.Logger.LogError(exception, "Unhandled exception occurred during request {Path}: {Message}", context.Request.Path, exception.Message);
+        }
+
         var statusCode = exception switch
         {
             DeviceModuleException deviceException => deviceException.StatusCode,
@@ -287,7 +292,9 @@ app.UseExceptionHandler(errorApp =>
             DeviceModuleException deviceException => deviceException.Message,
             MediaModuleException mediaException => mediaException.Message,
             DbUpdateException => "Dữ liệu xung đột với ràng buộc của cơ sở dữ liệu.",
-            _ => "Đã xảy ra lỗi trong quá trình xử lý yêu cầu."
+            _ => app.Environment.IsDevelopment() && exception != null
+                ? $"[{exception.GetType().Name}] {exception.Message}"
+                : "Đã xảy ra lỗi trong quá trình xử lý yêu cầu."
         };
 
         context.Response.StatusCode = statusCode;
