@@ -403,6 +403,7 @@ using (var scope = app.Services.CreateScope())
                     new() { Id = Guid.Parse("bbbbbbbb-0006-0000-0000-000000000003"), PermissionCode = "AUDITLOG_VIEW", PermissionName = "Xem nhật ký kiểm toán hệ thống", ModuleGroup = "Gói cước & Báo cáo" }
                 };
 
+                DefaultMediaRolePermissionSeeder.AddInitialCreatorMediaViewAssignment(context, defaultPermissions);
                 context.Permissions.AddRange(defaultPermissions);
                 context.SaveChanges();
 

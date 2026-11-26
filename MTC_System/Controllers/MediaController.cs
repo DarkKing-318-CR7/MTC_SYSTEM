@@ -68,7 +68,8 @@ public sealed class MediaController : ControllerBase
         var media = await _context.Media.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken);
         if (media is null || media.HlsStatus != "Ready" || media.ApprovalStatus != "\u0110\u00e3 duy\u1ec7t") return null;
         if (media.OrganizationId != organizationId ||
-            !await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken)) return null;
+            (!await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken) &&
+             !await HasValidShareGrantAsync(media, organizationId, facilityId, cancellationToken))) return null;
         return media;
     }
 
@@ -155,7 +156,8 @@ public sealed class MediaController : ControllerBase
             if (organizationId != media.OrganizationId)
                 return Forbid();
 
-            if (!await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken))
+            if (!await _service.CanAccessFacilityAsync(organizationId, facilityId, media.FacilityId, cancellationToken) &&
+                !await HasValidShareGrantAsync(media, organizationId, facilityId, cancellationToken))
                 return Forbid();
 
             if (media.ApprovalStatus != "\u0110\u00e3 duy\u1ec7t" &&
@@ -210,6 +212,24 @@ public sealed class MediaController : ControllerBase
         if (User.IsInRole("APPROVER") || User.IsInRole("ADMINISTRATOR"))
             return true;
         return User.IsInRole("CREATOR") && TryGetUserId(out var userId) && media.CreatedBy == userId;
+    }
+
+    private async Task<bool> HasValidShareGrantAsync(Media media, Guid organizationId, Guid? facilityId, CancellationToken cancellationToken)
+    {
+        if (facilityId is null || media.ApprovalStatus != "Đã duyệt") return false;
+        if (!TryGetUserId(out var userId)) return false;
+        var canViewMedia = await (from userRole in _context.UserRoles.Where(x => x.UserId == userId && !x.IsDeleted)
+                                  join rolePermission in _context.RolePermissions.Where(x => !x.IsDeleted) on userRole.RoleId equals rolePermission.RoleId
+                                  join permission in _context.Permissions.Where(x => !x.IsDeleted && x.PermissionCode == "MEDIA_VIEW") on rolePermission.PermissionId equals permission.Id
+                                  select userRole.Id).AnyAsync(cancellationToken);
+        if (!canViewMedia) return false;
+        return await _context.SharedMedia.AsNoTracking().AnyAsync(share =>
+            !share.IsDeleted && share.OrganizationId == organizationId && share.MediaId == media.Id &&
+            share.FromFacilityId == media.FacilityId && share.ToFacilityId == facilityId &&
+            (share.Status == "Chờ tiếp nhận" || share.Status == "Đã tiếp nhận") &&
+            _context.Facilities.Any(source => source.Id == share.FromFacilityId && !source.IsDeleted && source.IsActive && source.OrganizationId == organizationId) &&
+            _context.Facilities.Any(target => target.Id == share.ToFacilityId && !target.IsDeleted && target.IsActive && target.OrganizationId == organizationId && target.ParentId == share.FromFacilityId),
+            cancellationToken);
     }
 
     [HttpGet]
